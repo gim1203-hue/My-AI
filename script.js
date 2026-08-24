@@ -11,6 +11,7 @@ const voiceStatusText = document.getElementById("voiceStatusText");
 const voiceOutput = document.getElementById("voiceOutput");
 const documentForm = document.getElementById("documentForm");
 const documentInput = document.getElementById("documentInput");
+const folderInput = document.getElementById("folderInput");
 const documentQuestion = document.getElementById("documentQuestion");
 const analyzeDocumentButton = document.getElementById("analyzeDocumentButton");
 const selectedFileName = document.getElementById("selectedFileName");
@@ -45,13 +46,32 @@ function safeSourceUrl(value) {
     }
 }
 
-function appendChatMessage(label, text, citations = []) {
+function appendChatMessage(label, text, citations = [], allowDownload = false) {
     const message = document.createElement("div");
     message.className = "chat-message";
 
     const body = document.createElement("p");
     body.textContent = `${label}: ${text}`;
     message.appendChild(body);
+
+    if (allowDownload) {
+        const download = document.createElement("button");
+        download.type = "button";
+        download.className = "response-download";
+        download.textContent = "Download response";
+        download.addEventListener("click", () => {
+            const looksLikeHtml = /<!doctype html|<html[\s>]/i.test(text);
+            const blob = new Blob([text], {
+                type: looksLikeHtml ? "text/html;charset=utf-8" : "text/plain;charset=utf-8"
+            });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = looksLikeHtml ? "my-ai-response.html" : "my-ai-response.txt";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        });
+        message.appendChild(download);
+    }
 
     const validCitations = citations
         .map((citation) => ({ ...citation, safeUrl: safeSourceUrl(citation.url) }))
@@ -184,7 +204,12 @@ async function selectThread(threadId) {
         if (!response.ok) throw new Error(data.error || "Chat could not load.");
 
         data.messages.forEach((message) => {
-            appendChatMessage(message.role === "user" ? "You" : "My AI", message.content);
+            appendChatMessage(
+                message.role === "user" ? "You" : "My AI",
+                message.content,
+                [],
+                message.role === "assistant"
+            );
         });
         textStatus.textContent = "";
     } catch {
@@ -516,7 +541,7 @@ form.addEventListener("submit", async function (event) {
             throw new Error(data.error || "The message could not be sent.");
         }
 
-        appendChatMessage("My AI", data.reply, data.citations);
+        appendChatMessage("My AI", data.reply, data.citations, true);
         activeThreadId = data.threadId;
 
         const existingThread = chatThreads.find((thread) => thread.id === data.threadId);
@@ -567,31 +592,42 @@ taskForm.addEventListener("submit", async (event) => {
 
 loadWorkspace();
 
-documentInput.addEventListener("change", () => {
-    const file = documentInput.files?.[0];
-    selectedFileName.textContent = file
-        ? `${file.name} — ${(file.size / 1024 / 1024).toFixed(1)} MB`
-        : "PDF, Word, text, Markdown, or CSV — up to 10 MB";
-});
+function selectedUploads() {
+    return [...(documentInput.files ?? []), ...(folderInput.files ?? [])];
+}
+
+function updateSelectedFileSummary() {
+    const files = selectedUploads();
+    const totalMb = files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
+    selectedFileName.textContent = files.length
+        ? `${files.length} selected — ${totalMb.toFixed(1)} MB total`
+        : "Documents, code, or images — up to 20 files and 20 MB total";
+}
+
+documentInput.addEventListener("change", updateSelectedFileSummary);
+folderInput.addEventListener("change", updateSelectedFileSummary);
 
 documentForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const file = documentInput.files?.[0];
+    const files = selectedUploads();
     const question = documentQuestion.value.trim();
 
-    if (!file) {
-        documentStatus.textContent = "Choose a document first.";
+    if (files.length === 0) {
+        documentStatus.textContent = "Choose files or a folder first.";
         return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-        documentStatus.textContent = "That file is larger than 10 MB. Choose a smaller file.";
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    if (files.length > 20 || totalSize > 20 * 1024 * 1024) {
+        documentStatus.textContent = "Choose no more than 20 files and 20 MB total.";
         return;
     }
 
     const payload = new FormData();
-    payload.set("document", file);
+    files.forEach((file) => {
+        payload.append("documents", file, file.webkitRelativePath || file.name);
+    });
     payload.set(
         "question",
         question || "Summarize this document and suggest useful improvements or next steps."
@@ -613,7 +649,9 @@ documentForm.addEventListener("submit", async (event) => {
         }
 
         documentResult.textContent = data.reply;
-        documentStatus.textContent = "Document review complete.";
+        documentStatus.textContent = data.skipped?.length
+            ? `Review complete. ${data.skipped.length} unsupported file(s) were skipped.`
+            : "Review complete.";
     } catch (error) {
         documentStatus.textContent = error?.message || "Document review is temporarily unavailable.";
     } finally {

@@ -97,9 +97,15 @@
 
             <form id="documentForm" class="document-form">
                 <label class="file-picker" for="documentInput">
-                    <strong>Choose a document</strong>
-                    <span id="selectedFileName">PDF, Word, text, Markdown, or CSV — up to 10 MB</span>
-                    <input id="documentInput" name="document" type="file" accept=".pdf,.doc,.docx,.txt,.md,.csv,application/pdf,text/plain,text/markdown,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                    <strong>Choose files</strong>
+                    <span id="selectedFileName">Documents, code, or images — up to 20 files and 20 MB total</span>
+                    <input id="documentInput" name="documents" type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.html,.htm,.css,.js,.mjs,.ts,.tsx,.jsx,.json,.xml,.py,.java,.c,.cpp,.h,.sql,.yaml,.yml,.png,.jpg,.jpeg,.webp,.gif">
+                </label>
+
+                <label class="file-picker" for="folderInput">
+                    <strong>Choose a folder</strong>
+                    <span>Select a project folder; unsupported binary files will be skipped.</span>
+                    <input id="folderInput" name="folder" type="file" webkitdirectory multiple>
                 </label>
 
                 <label class="document-question" for="documentQuestion">

@@ -368,26 +368,57 @@ function arrayBufferToBase64(buffer) {
 async function handleDocumentAnalysis(request, env) {
     try {
         const form = await request.formData();
-        const file = form.get("document");
+        const files = form.getAll("documents").filter((file) => file instanceof File && file.size > 0);
         const question = String(form.get("question") || "").trim();
 
-        if (!(file instanceof File) || file.size === 0) {
-            return json({ error: "Choose a document first." }, 400);
+        if (files.length === 0) {
+            return json({ error: "Choose files or a folder first." }, 400);
         }
 
-        if (file.size > 10 * 1024 * 1024) {
-            return json({ error: "The document must be 10 MB or smaller." }, 413);
+        const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+        if (files.length > 20 || totalSize > 20 * 1024 * 1024) {
+            return json({ error: "Choose no more than 20 files and 20 MB total." }, 413);
         }
 
-        const allowedExtensions = [".pdf", ".doc", ".docx", ".txt", ".md", ".csv"];
-        const lowerName = file.name.toLowerCase();
+        const documentExtensions = [
+            ".pdf", ".doc", ".docx", ".txt", ".md", ".csv", ".html", ".htm",
+            ".css", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".json", ".xml",
+            ".py", ".java", ".c", ".cpp", ".h", ".sql", ".yaml", ".yml"
+        ];
+        const imageExtensions = [".png", ".jpg", ".jpeg", ".webp", ".gif"];
+        const supported = [];
+        const skipped = [];
 
-        if (!allowedExtensions.some((extension) => lowerName.endsWith(extension))) {
-            return json({ error: "Use a PDF, Word, text, Markdown, or CSV document." }, 415);
+        for (const file of files) {
+            const lowerName = file.name.toLowerCase();
+            const isDocument = documentExtensions.some((extension) => lowerName.endsWith(extension));
+            const isImage = imageExtensions.some((extension) => lowerName.endsWith(extension));
+
+            if (!isDocument && !isImage) {
+                skipped.push(file.name);
+                continue;
+            }
+
+            const base64 = arrayBufferToBase64(await file.arrayBuffer());
+            const mimeType = file.type || (isImage ? "image/jpeg" : "text/plain");
+            supported.push(
+                isImage
+                    ? {
+                          type: "input_image",
+                          image_url: `data:${mimeType};base64,${base64}`
+                      }
+                    : {
+                          type: "input_file",
+                          filename: file.name,
+                          file_data: `data:${mimeType};base64,${base64}`
+                      }
+            );
         }
 
-        const base64 = arrayBufferToBase64(await file.arrayBuffer());
-        const mimeType = file.type || "application/octet-stream";
+        if (supported.length === 0) {
+            return json({ error: "The selected folder has no supported documents, code, or images." }, 415);
+        }
+
         const response = await openAIResponse(env, {
             model: "gpt-5.6-luna",
             store: false,
@@ -399,19 +430,15 @@ async function handleDocumentAnalysis(request, env) {
                             type: "input_text",
                             text:
                                 question ||
-                                "Summarize this document and suggest useful improvements or next steps."
+                                "Review these files together. Summarize the project and suggest useful improvements or next steps."
                         },
-                        {
-                            type: "input_file",
-                            filename: file.name,
-                            file_data: `data:${mimeType};base64,${base64}`
-                        }
+                        ...supported
                     ]
                 }
             ]
         });
 
-        return json({ reply: outputText(response) });
+        return json({ reply: outputText(response), skipped });
     } catch (error) {
         console.error("Document analysis failed:", error?.message ?? "Unknown error");
         return json({ error: "The document could not be reviewed right now." }, 502);

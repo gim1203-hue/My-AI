@@ -523,6 +523,17 @@ p {
     white-space: pre-wrap;
 }
 
+.response-download {
+    margin-top: 10px;
+    border: 1px solid #ddd7df;
+    border-radius: 9px;
+    padding: 6px 9px;
+    background: white;
+    color: #514958;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
 .source-label {
     display: block;
     margin-top: 12px;
