@@ -10,11 +10,32 @@
 
 <body>
     <main class="app-shell">
-        <header>
-            <p class="eyebrow">YOUR PERSONAL ASSISTANT</p>
-            <h1>My AI</h1>
-            <p class="intro">Talk naturally or keep using text chat.</p>
-        </header>
+        <aside class="workspace-panel" aria-label="Chats and tasks">
+            <section class="sidebar-section">
+                <div class="sidebar-heading">
+                    <p class="section-label">Chats</p>
+                    <button id="newChatButton" class="compact-button" type="button">New chat</button>
+                </div>
+                <div id="chatThreadList" class="thread-list" aria-live="polite"></div>
+            </section>
+
+            <section class="sidebar-section task-section">
+                <p class="section-label">Tasks</p>
+                <form id="taskForm" class="task-form">
+                    <label class="sr-only" for="taskInput">New task</label>
+                    <input id="taskInput" type="text" maxlength="160" placeholder="Add a new task...">
+                    <button type="submit">Add</button>
+                </form>
+                <div id="taskList" class="task-list" aria-live="polite"></div>
+            </section>
+        </aside>
+
+        <div class="content-column">
+            <header>
+                <p class="eyebrow">YOUR PERSONAL ASSISTANT</p>
+                <h1>My AI</h1>
+                <p class="intro">Talk naturally, keep chats organized, and manage your tasks.</p>
+            </header>
 
         <section class="voice-card" aria-labelledby="voiceHeading">
             <div>
@@ -88,6 +109,7 @@
             <div id="documentResult" class="document-result" aria-live="polite"></div>
             <p class="privacy-note document-privacy">The selected file is sent securely to OpenAI for this review and is not added to GitHub.</p>
         </section>
+        </div>
     </main>
 
     <script type="module" src="/script.js"></script>

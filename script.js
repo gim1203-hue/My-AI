@@ -16,11 +16,19 @@ const analyzeDocumentButton = document.getElementById("analyzeDocumentButton");
 const selectedFileName = document.getElementById("selectedFileName");
 const documentStatus = document.getElementById("documentStatus");
 const documentResult = document.getElementById("documentResult");
+const newChatButton = document.getElementById("newChatButton");
+const chatThreadList = document.getElementById("chatThreadList");
+const taskForm = document.getElementById("taskForm");
+const taskInput = document.getElementById("taskInput");
+const taskList = document.getElementById("taskList");
 
 let peerConnection = null;
 let microphoneStream = null;
 let eventChannel = null;
 let voiceStarting = false;
+let activeThreadId = null;
+let chatThreads = [];
+let tasks = [];
 
 function setVoiceStatus(state, message) {
     voiceStatus.dataset.state = state;
@@ -73,6 +81,155 @@ function appendChatMessage(label, text, citations = []) {
 
     chat.appendChild(message);
     message.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function renderThreads() {
+    chatThreadList.textContent = "";
+
+    if (chatThreads.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "sidebar-empty";
+        empty.textContent = "No saved chats yet.";
+        chatThreadList.appendChild(empty);
+        return;
+    }
+
+    chatThreads.forEach((thread) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "thread-button";
+        button.textContent = thread.title;
+        button.title = thread.title;
+        button.setAttribute("aria-current", String(thread.id === activeThreadId));
+        button.addEventListener("click", () => selectThread(thread.id));
+        chatThreadList.appendChild(button);
+    });
+}
+
+function renderTasks() {
+    taskList.textContent = "";
+
+    if (tasks.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "sidebar-empty";
+        empty.textContent = "No tasks yet.";
+        taskList.appendChild(empty);
+        return;
+    }
+
+    tasks.forEach((task) => {
+        const item = document.createElement("div");
+        item.className = "task-item";
+        item.dataset.completed = String(task.completed);
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.completed;
+        checkbox.setAttribute("aria-label", `Mark ${task.title} complete`);
+        checkbox.addEventListener("change", () => updateTask(task.id, checkbox.checked));
+
+        const title = document.createElement("button");
+        title.type = "button";
+        title.className = "task-title-button";
+        title.textContent = task.title;
+        title.addEventListener("click", () => selectThread(task.chatId));
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "task-delete";
+        remove.textContent = "×";
+        remove.setAttribute("aria-label", `Delete ${task.title}`);
+        remove.addEventListener("click", () => deleteTask(task.id));
+
+        item.append(checkbox, title, remove);
+        taskList.appendChild(item);
+    });
+}
+
+async function loadWorkspace() {
+    try {
+        const response = await fetch("/workspace");
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || "Workspace could not load.");
+
+        chatThreads = data.chats;
+        tasks = data.tasks;
+        renderThreads();
+        renderTasks();
+    } catch {
+        chatThreadList.innerHTML = '<p class="sidebar-empty">Saved chats are unavailable.</p>';
+        taskList.innerHTML = '<p class="sidebar-empty">Tasks are unavailable.</p>';
+    }
+}
+
+async function selectThread(threadId) {
+    activeThreadId = threadId;
+    renderThreads();
+    chat.textContent = "";
+    textStatus.textContent = "Loading chat...";
+
+    try {
+        const response = await fetch(`/chats/${encodeURIComponent(threadId)}/messages`);
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || "Chat could not load.");
+
+        data.messages.forEach((message) => {
+            appendChatMessage(message.role === "user" ? "You" : "My AI", message.content);
+        });
+        textStatus.textContent = "";
+    } catch {
+        textStatus.textContent = "This saved chat could not be loaded.";
+    }
+}
+
+function startNewChat() {
+    activeThreadId = null;
+    chat.textContent = "";
+    textStatus.textContent = "New chat ready.";
+    renderThreads();
+    input.focus();
+}
+
+async function addTask(title) {
+    const response = await fetch("/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Task could not be added.");
+    tasks.unshift(data.task);
+    renderTasks();
+}
+
+async function updateTask(taskId, completed) {
+    try {
+        const response = await fetch(`/tasks/${encodeURIComponent(taskId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ completed })
+        });
+        if (!response.ok) throw new Error();
+        tasks = tasks.map((task) => (task.id === taskId ? { ...task, completed } : task));
+        renderTasks();
+    } catch {
+        await loadWorkspace();
+    }
+}
+
+async function deleteTask(taskId) {
+    try {
+        const response = await fetch(`/tasks/${encodeURIComponent(taskId)}`, {
+            method: "DELETE"
+        });
+        if (!response.ok) throw new Error();
+        tasks = tasks.filter((task) => task.id !== taskId);
+        renderTasks();
+    } catch {
+        await loadWorkspace();
+    }
 }
 
 function sendRealtimeEvent(event) {
@@ -330,7 +487,8 @@ form.addEventListener("submit", async function (event) {
             },
             body: JSON.stringify({
                 message: message,
-                searchWeb: searchWeb
+                searchWeb: searchWeb,
+                threadId: activeThreadId
             })
         });
 
@@ -341,6 +499,16 @@ form.addEventListener("submit", async function (event) {
         }
 
         appendChatMessage("My AI", data.reply, data.citations);
+        activeThreadId = data.threadId;
+
+        const existingThread = chatThreads.find((thread) => thread.id === data.threadId);
+        if (existingThread) {
+            existingThread.title = data.threadTitle;
+            chatThreads = [existingThread, ...chatThreads.filter((thread) => thread.id !== data.threadId)];
+        } else {
+            chatThreads.unshift({ id: data.threadId, title: data.threadTitle });
+        }
+        renderThreads();
         textStatus.textContent = data.searchedWeb
             ? "Web search complete. Sources are listed with the answer."
             : "";
@@ -360,6 +528,25 @@ form.addEventListener("submit", async function (event) {
 startVoiceButton.addEventListener("click", startVoice);
 stopVoiceButton.addEventListener("click", () => stopVoice());
 window.addEventListener("beforeunload", resetVoiceConnection);
+
+newChatButton.addEventListener("click", startNewChat);
+
+taskForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = taskInput.value.trim();
+    if (!title) return;
+
+    taskInput.disabled = true;
+    try {
+        await addTask(title);
+        taskInput.value = "";
+    } finally {
+        taskInput.disabled = false;
+        taskInput.focus();
+    }
+});
+
+loadWorkspace();
 
 documentInput.addEventListener("change", () => {
     const file = documentInput.files?.[0];

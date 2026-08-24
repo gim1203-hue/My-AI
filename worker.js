@@ -10,6 +10,135 @@ async function readJson(request) {
     }
 }
 
+let schemaReady;
+
+function ensureDatabase(env) {
+    if (!schemaReady) {
+        schemaReady = env.DB.batch([
+            env.DB.prepare(`CREATE TABLE IF NOT EXISTS chats (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )`),
+            env.DB.prepare(`CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id TEXT NOT NULL,
+                role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            )`),
+            env.DB.prepare(`CREATE TABLE IF NOT EXISTS tasks (
+                id TEXT PRIMARY KEY,
+                chat_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                completed INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            )`),
+            env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_chats_updated_at ON chats(updated_at DESC)"),
+            env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id, id)"),
+            env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_tasks_completed_created ON tasks(completed, created_at DESC)"),
+            env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_tasks_chat_id ON tasks(chat_id)")
+        ]).catch((error) => {
+            schemaReady = null;
+            throw error;
+        });
+    }
+
+    return schemaReady;
+}
+
+function mapTask(row) {
+    return {
+        id: row.id,
+        chatId: row.chat_id,
+        title: row.title,
+        completed: Boolean(row.completed)
+    };
+}
+
+async function handleWorkspace(env) {
+    await ensureDatabase(env);
+    const [chatResult, taskResult] = await env.DB.batch([
+        env.DB.prepare("SELECT id, title FROM chats ORDER BY updated_at DESC LIMIT 100"),
+        env.DB.prepare(
+            "SELECT id, chat_id, title, completed FROM tasks ORDER BY completed ASC, created_at DESC LIMIT 200"
+        )
+    ]);
+
+    return json({
+        chats: chatResult.results ?? [],
+        tasks: (taskResult.results ?? []).map(mapTask)
+    });
+}
+
+async function handleChatMessages(env, chatId) {
+    await ensureDatabase(env);
+    const result = await env.DB.prepare(
+        "SELECT role, content FROM messages WHERE chat_id = ? ORDER BY id ASC LIMIT 500"
+    )
+        .bind(chatId)
+        .all();
+    return json({ messages: result.results ?? [] });
+}
+
+async function handleCreateTask(request, env) {
+    await ensureDatabase(env);
+    const body = await readJson(request);
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+
+    if (!title || title.length > 160) {
+        return json({ error: "Enter a short task title." }, 400);
+    }
+
+    const taskId = crypto.randomUUID();
+    const chatId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await env.DB.batch([
+        env.DB.prepare("INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)").bind(
+            chatId,
+            title,
+            now,
+            now
+        ),
+        env.DB.prepare(
+            "INSERT INTO tasks (id, chat_id, title, completed, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)"
+        ).bind(taskId, chatId, title, now, now)
+    ]);
+
+    return json({ task: { id: taskId, chatId, title, completed: false } }, 201);
+}
+
+async function handleUpdateTask(request, env, taskId) {
+    await ensureDatabase(env);
+    const body = await readJson(request);
+
+    if (typeof body.completed !== "boolean") {
+        return json({ error: "A completed value is required." }, 400);
+    }
+
+    await env.DB.prepare("UPDATE tasks SET completed = ?, updated_at = ? WHERE id = ?")
+        .bind(body.completed ? 1 : 0, new Date().toISOString(), taskId)
+        .run();
+    return json({ ok: true });
+}
+
+async function handleDeleteTask(env, taskId) {
+    await ensureDatabase(env);
+    const task = await env.DB.prepare("SELECT chat_id FROM tasks WHERE id = ?").bind(taskId).first();
+    if (!task) return json({ error: "Task not found." }, 404);
+
+    await env.DB.batch([
+        env.DB.prepare("DELETE FROM tasks WHERE id = ?").bind(taskId),
+        env.DB.prepare("DELETE FROM chats WHERE id = ?").bind(task.chat_id)
+    ]);
+    return json({ ok: true });
+}
+
 function outputText(response) {
     return (response.output ?? [])
         .filter((item) => item.type === "message")
@@ -77,6 +206,7 @@ async function searchTheWeb(env, query) {
 }
 
 async function handleChat(request, env) {
+    await ensureDatabase(env);
     const body = await readJson(request);
     const userMessage = body.message;
 
@@ -85,6 +215,26 @@ async function handleChat(request, env) {
     }
 
     try {
+        let threadId = typeof body.threadId === "string" ? body.threadId : null;
+        let threadTitle = userMessage.trim().replace(/\s+/g, " ").slice(0, 60);
+        const now = new Date().toISOString();
+
+        if (threadId) {
+            const existing = await env.DB.prepare("SELECT title FROM chats WHERE id = ?").bind(threadId).first();
+            if (existing) {
+                threadTitle = existing.title;
+            } else {
+                threadId = null;
+            }
+        }
+
+        if (!threadId) {
+            threadId = crypto.randomUUID();
+            await env.DB.prepare("INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)")
+                .bind(threadId, threadTitle, now, now)
+                .run();
+        }
+
         const searchWeb = body.searchWeb === true;
         const result = searchWeb
             ? await searchTheWeb(env, userMessage)
@@ -98,7 +248,25 @@ async function handleChat(request, env) {
                   citations: []
               };
 
-        return json({ ...result, searchedWeb: searchWeb });
+        await env.DB.batch([
+            env.DB.prepare(
+                "INSERT INTO messages (chat_id, role, content, created_at) VALUES (?, 'user', ?, ?)"
+            ).bind(threadId, userMessage, now),
+            env.DB.prepare(
+                "INSERT INTO messages (chat_id, role, content, created_at) VALUES (?, 'assistant', ?, ?)"
+            ).bind(threadId, result.reply, new Date().toISOString()),
+            env.DB.prepare("UPDATE chats SET updated_at = ? WHERE id = ?").bind(
+                new Date().toISOString(),
+                threadId
+            )
+        ]);
+
+        return json({
+            ...result,
+            searchedWeb: searchWeb,
+            threadId,
+            threadTitle
+        });
     } catch (error) {
         console.error("Text response failed:", error?.message ?? "Unknown error");
         return json({ error: "Something went wrong." }, 500);
@@ -245,6 +413,24 @@ async function handleDocumentAnalysis(request, env) {
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
+
+        if (request.method === "GET" && url.pathname === "/workspace") {
+            return handleWorkspace(env);
+        }
+        const messageMatch = url.pathname.match(/^\/chats\/([^/]+)\/messages$/);
+        if (request.method === "GET" && messageMatch) {
+            return handleChatMessages(env, decodeURIComponent(messageMatch[1]));
+        }
+        if (request.method === "POST" && url.pathname === "/tasks") {
+            return handleCreateTask(request, env);
+        }
+        const taskMatch = url.pathname.match(/^\/tasks\/([^/]+)$/);
+        if (request.method === "PATCH" && taskMatch) {
+            return handleUpdateTask(request, env, decodeURIComponent(taskMatch[1]));
+        }
+        if (request.method === "DELETE" && taskMatch) {
+            return handleDeleteTask(env, decodeURIComponent(taskMatch[1]));
+        }
 
         if (request.method === "POST" && url.pathname === "/chat") {
             return handleChat(request, env);
