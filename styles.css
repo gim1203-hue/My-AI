@@ -852,6 +852,48 @@ body {
         #08090c;
 }
 
+.app-shell {
+    width: min(1500px, calc(100% - 24px));
+    height: calc(100vh - 24px);
+    grid-template-columns: 260px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0;
+    margin: 12px auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #282a31;
+    border-radius: 22px;
+    background: #ffffff;
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+}
+
+.workspace-panel {
+    position: static;
+    top: auto;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-right: 1px solid #e8e1e9;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.content-column {
+    height: 100%;
+    overflow: hidden;
+    padding: 0 18px 18px;
+}
+
+.content-column > header {
+    flex: 0 0 auto;
+    margin: 14px 0 12px;
+}
+
+.unified-workspace {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .content-column > header h1 {
     color: #ffffff;
 }
@@ -867,8 +909,8 @@ body {
     grid-template-rows: auto minmax(80px, 1fr) auto auto auto;
     column-gap: 14px;
     min-height: 0;
-    height: calc(100vh - 215px);
-    max-height: 820px;
+    height: 100%;
+    max-height: none;
     padding: 18px;
 }
 
@@ -914,12 +956,18 @@ body {
     display: grid;
     grid-column: 2;
     grid-row: 1 / 6;
-    grid-template-rows: auto minmax(100px, 0.42fr) minmax(180px, 1fr) auto auto;
+    grid-template-rows: auto auto minmax(90px, 0.38fr) minmax(170px, 1fr) auto auto;
     gap: 9px;
     min-width: 0;
     min-height: 0;
     border-left: 1px solid #e7e3e8;
     padding-left: 14px;
+}
+
+.folder-connection-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
 }
 
 .code-workbench-heading strong {
@@ -1071,12 +1119,36 @@ body {
     }
 
     .app-shell {
-        height: 100vh;
-        padding-bottom: 18px;
+        height: calc(100vh - 24px);
+        padding-bottom: 0;
     }
 }
 
 @media (max-width: 900px) {
+    body {
+        overflow: auto;
+    }
+
+    .app-shell {
+        width: min(100% - 16px, 760px);
+        height: auto;
+        grid-template-columns: 1fr;
+        margin: 8px auto;
+        overflow: visible;
+    }
+
+    .workspace-panel {
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid #e8e1e9;
+    }
+
+    .content-column {
+        height: auto;
+        overflow: visible;
+        padding: 0 12px 12px;
+    }
+
     .one-screen-workspace {
         display: flex;
         height: auto;

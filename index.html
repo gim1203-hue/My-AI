@@ -92,10 +92,7 @@
                             <p id="selectedFolderName"></p>
                             <ul id="selectedFilesList"></ul>
                         </div>
-                        <p class="single-prompt-note">Use the “Type your message” box above, then press Send or Analyze.</p>
-                        <button id="analyzeDocumentButton" type="submit">Analyze selected files</button>
-                        <button id="connectFolderButton" class="edit-folder-button" type="button">Connect editable folder</button>
-                        <button id="proposeChangesButton" class="edit-folder-button" type="button" disabled>Propose file changes</button>
+                        <p class="single-prompt-note">Select files, type your request above, and press Send.</p>
                     </form>
                     <p id="documentStatus" class="text-status" role="status" aria-live="polite"></p>
                     <p id="editableFolderStatus" class="text-status" role="status" aria-live="polite">No editable folder connected.</p>
@@ -115,6 +112,10 @@
                         <p class="section-label" id="codeWorkbenchHeading">Connected folder</p>
                         <strong>File &amp; code viewer</strong>
                     </div>
+                </div>
+                <div class="folder-connection-actions">
+                    <button id="connectFolderButton" class="edit-folder-button" type="button">Connect editable folder</button>
+                    <button id="proposeChangesButton" class="edit-folder-button" type="button" disabled>Propose AI changes</button>
                 </div>
                 <label class="sr-only" for="connectedFileSelect">Files in the connected folder</label>
                 <select id="connectedFileSelect" size="7" disabled>
