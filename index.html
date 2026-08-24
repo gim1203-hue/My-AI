@@ -9,18 +9,61 @@
 </head>
 
 <body>
+    <main class="app-shell">
+        <header>
+            <p class="eyebrow">YOUR PERSONAL ASSISTANT</p>
+            <h1>My AI</h1>
+            <p class="intro">Talk naturally or keep using text chat.</p>
+        </header>
 
-    <h1>My AI</h1>
+        <section class="voice-card" aria-labelledby="voiceHeading">
+            <div>
+                <p class="section-label" id="voiceHeading">Live voice</p>
+                <p class="voice-help">Start a hands-free conversation. You can speak again whenever the assistant finishes.</p>
+            </div>
 
-    <p>Ask me anything.</p>
+            <div class="voice-controls">
+                <button id="startVoiceButton" class="voice-button" type="button">
+                    <span aria-hidden="true">●</span>
+                    Start voice
+                </button>
+                <button id="stopVoiceButton" class="stop-button" type="button" disabled>
+                    End voice
+                </button>
+            </div>
 
-    <input type="text" id="userInput" placeholder="Type your message...">
+            <div id="voiceStatus" class="voice-status" role="status" aria-live="polite" data-state="idle">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span id="voiceStatusText">Voice is off</span>
+            </div>
 
-    <button id="sendButton">Send</button>
+            <p class="privacy-note">Your browser will ask for microphone permission. Audio is sent only while voice chat is active.</p>
+            <p class="privacy-note">Ask for current information during voice chat and My AI can search the web; search status and clickable sources appear below.</p>
+            <audio id="voiceOutput" autoplay></audio>
+        </section>
 
-    <div id="chat"></div>
+        <section class="text-card" aria-labelledby="textHeading">
+            <p class="section-label" id="textHeading">Text chat</p>
+            <form id="chatForm" class="message-form">
+                <label class="sr-only" for="userInput">Message</label>
+                <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off">
+                <button id="sendButton" type="submit">Send</button>
+            </form>
+
+            <label class="search-option" for="webSearchToggle">
+                <input type="checkbox" id="webSearchToggle">
+                <span>
+                    <strong>Search the web</strong>
+                    <small>Use current online sources for this message. This adds a web-search API call.</small>
+                </span>
+            </label>
+
+            <p id="textStatus" class="text-status" role="status" aria-live="polite"></p>
+
+            <div id="chat" class="chat" aria-live="polite"></div>
+        </section>
+    </main>
 
     <script src="script.js"></script>
-
 </body>
 </html>
