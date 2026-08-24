@@ -9,6 +9,13 @@ const stopVoiceButton = document.getElementById("stopVoiceButton");
 const voiceStatus = document.getElementById("voiceStatus");
 const voiceStatusText = document.getElementById("voiceStatusText");
 const voiceOutput = document.getElementById("voiceOutput");
+const documentForm = document.getElementById("documentForm");
+const documentInput = document.getElementById("documentInput");
+const documentQuestion = document.getElementById("documentQuestion");
+const analyzeDocumentButton = document.getElementById("analyzeDocumentButton");
+const selectedFileName = document.getElementById("selectedFileName");
+const documentStatus = document.getElementById("documentStatus");
+const documentResult = document.getElementById("documentResult");
 
 let peerConnection = null;
 let microphoneStream = null;
@@ -353,3 +360,57 @@ form.addEventListener("submit", async function (event) {
 startVoiceButton.addEventListener("click", startVoice);
 stopVoiceButton.addEventListener("click", () => stopVoice());
 window.addEventListener("beforeunload", resetVoiceConnection);
+
+documentInput.addEventListener("change", () => {
+    const file = documentInput.files?.[0];
+    selectedFileName.textContent = file
+        ? `${file.name} — ${(file.size / 1024 / 1024).toFixed(1)} MB`
+        : "PDF, Word, text, Markdown, or CSV — up to 10 MB";
+});
+
+documentForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const file = documentInput.files?.[0];
+    const question = documentQuestion.value.trim();
+
+    if (!file) {
+        documentStatus.textContent = "Choose a document first.";
+        return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+        documentStatus.textContent = "That file is larger than 10 MB. Choose a smaller file.";
+        return;
+    }
+
+    const payload = new FormData();
+    payload.set("document", file);
+    payload.set(
+        "question",
+        question || "Summarize this document and suggest useful improvements or next steps."
+    );
+
+    analyzeDocumentButton.disabled = true;
+    documentStatus.textContent = "Uploading and reviewing your document...";
+    documentResult.textContent = "";
+
+    try {
+        const response = await fetch("/analyze-document", {
+            method: "POST",
+            body: payload
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "The document could not be reviewed.");
+        }
+
+        documentResult.textContent = data.reply;
+        documentStatus.textContent = "Document review complete.";
+    } catch (error) {
+        documentStatus.textContent = error?.message || "Document review is temporarily unavailable.";
+    } finally {
+        analyzeDocumentButton.disabled = false;
+    }
+});

@@ -62,6 +62,32 @@
 
             <div id="chat" class="chat" aria-live="polite"></div>
         </section>
+
+        <section class="document-card" aria-labelledby="documentHeading">
+            <div>
+                <p class="section-label" id="documentHeading">Document review</p>
+                <p class="document-help">Upload a document and ask My AI to summarize it, review it, or suggest improvements.</p>
+            </div>
+
+            <form id="documentForm" class="document-form">
+                <label class="file-picker" for="documentInput">
+                    <strong>Choose a document</strong>
+                    <span id="selectedFileName">PDF, Word, text, Markdown, or CSV — up to 10 MB</span>
+                    <input id="documentInput" name="document" type="file" accept=".pdf,.doc,.docx,.txt,.md,.csv,application/pdf,text/plain,text/markdown,text/csv,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                </label>
+
+                <label class="document-question" for="documentQuestion">
+                    <span>What should My AI do?</span>
+                    <textarea id="documentQuestion" name="question" rows="3" placeholder="For example: Summarize this and suggest three improvements."></textarea>
+                </label>
+
+                <button id="analyzeDocumentButton" type="submit">Analyze document</button>
+            </form>
+
+            <p id="documentStatus" class="text-status" role="status" aria-live="polite"></p>
+            <div id="documentResult" class="document-result" aria-live="polite"></div>
+            <p class="privacy-note document-privacy">The selected file is sent securely to OpenAI for this review and is not added to GitHub.</p>
+        </section>
     </main>
 
     <script type="module" src="/script.js"></script>

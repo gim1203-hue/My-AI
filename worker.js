@@ -177,6 +177,71 @@ async function handleSession(request, env) {
     }
 }
 
+function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+
+    return btoa(binary);
+}
+
+async function handleDocumentAnalysis(request, env) {
+    try {
+        const form = await request.formData();
+        const file = form.get("document");
+        const question = String(form.get("question") || "").trim();
+
+        if (!(file instanceof File) || file.size === 0) {
+            return json({ error: "Choose a document first." }, 400);
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            return json({ error: "The document must be 10 MB or smaller." }, 413);
+        }
+
+        const allowedExtensions = [".pdf", ".doc", ".docx", ".txt", ".md", ".csv"];
+        const lowerName = file.name.toLowerCase();
+
+        if (!allowedExtensions.some((extension) => lowerName.endsWith(extension))) {
+            return json({ error: "Use a PDF, Word, text, Markdown, or CSV document." }, 415);
+        }
+
+        const base64 = arrayBufferToBase64(await file.arrayBuffer());
+        const mimeType = file.type || "application/octet-stream";
+        const response = await openAIResponse(env, {
+            model: "gpt-5.6-luna",
+            store: false,
+            input: [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_text",
+                            text:
+                                question ||
+                                "Summarize this document and suggest useful improvements or next steps."
+                        },
+                        {
+                            type: "input_file",
+                            filename: file.name,
+                            file_data: `data:${mimeType};base64,${base64}`
+                        }
+                    ]
+                }
+            ]
+        });
+
+        return json({ reply: outputText(response) });
+    } catch (error) {
+        console.error("Document analysis failed:", error?.message ?? "Unknown error");
+        return json({ error: "The document could not be reviewed right now." }, 502);
+    }
+}
+
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
@@ -189,6 +254,9 @@ export default {
         }
         if (request.method === "POST" && url.pathname === "/session") {
             return handleSession(request, env);
+        }
+        if (request.method === "POST" && url.pathname === "/analyze-document") {
+            return handleDocumentAnalysis(request, env);
         }
 
         return env.ASSETS.fetch(request);

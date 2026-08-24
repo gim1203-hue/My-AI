@@ -70,7 +70,8 @@ p {
 }
 
 .voice-card,
-.text-card {
+.text-card,
+.document-card {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 24px;
     background: rgba(18, 23, 35, 0.82);
@@ -178,6 +179,92 @@ p {
 .text-card {
     margin-top: 20px;
     padding: 24px;
+}
+
+.document-card {
+    display: grid;
+    gap: 18px;
+    margin-top: 20px;
+    padding: 24px;
+}
+
+.document-help {
+    margin: 8px 0 0;
+    color: #c3c9d6;
+}
+
+.document-form {
+    display: grid;
+    gap: 14px;
+}
+
+.file-picker,
+.document-question {
+    display: grid;
+    gap: 7px;
+}
+
+.file-picker {
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 18px;
+    background: rgba(5, 8, 14, 0.38);
+    cursor: pointer;
+}
+
+.file-picker span,
+.document-question span {
+    color: #aab2c2;
+    font-size: 0.86rem;
+}
+
+#documentInput {
+    margin-top: 6px;
+    color: #dce0ea;
+}
+
+#documentQuestion {
+    width: 100%;
+    resize: vertical;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    outline: none;
+    padding: 13px 15px;
+    background: rgba(5, 8, 14, 0.5);
+    color: white;
+    font: inherit;
+}
+
+#documentQuestion:focus {
+    border-color: #776bff;
+    box-shadow: 0 0 0 3px rgba(119, 107, 255, 0.16);
+}
+
+#analyzeDocumentButton {
+    min-height: 48px;
+    border: 0;
+    border-radius: 14px;
+    padding: 0 20px;
+    background: linear-gradient(135deg, #4be1b9, #5a8bff);
+    color: #081018;
+    font-weight: 800;
+}
+
+.document-result {
+    min-height: 0;
+    border-radius: 14px;
+    color: #dce0ea;
+    white-space: pre-wrap;
+}
+
+.document-result:not(:empty) {
+    min-height: 80px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.document-privacy {
+    margin: 0;
 }
 
 .message-form {
@@ -302,7 +389,8 @@ p {
     }
 
     .voice-card,
-    .text-card {
+    .text-card,
+    .document-card {
         border-radius: 20px;
     }
 
