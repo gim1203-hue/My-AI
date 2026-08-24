@@ -166,9 +166,30 @@ app.post(
             const answer = await response.text();
 
             if (!response.ok) {
-                console.error("Realtime session creation failed with status", response.status);
-                return res.status(502).json({
-                    error: "The voice session could not be started."
+                let upstreamError = {};
+
+                try {
+                    upstreamError = JSON.parse(answer).error ?? {};
+                } catch {
+                    // The upstream service did not return a JSON error body.
+                }
+
+                console.error(
+                    `Realtime session creation failed (${response.status}, ${upstreamError.code || "unknown_code"}):`,
+                    upstreamError.message || "No error details were returned."
+                );
+
+                const publicError =
+                    response.status === 401
+                        ? "OpenAI rejected the API key. Check the private .env file and restart the server."
+                        : response.status === 403
+                          ? "This API project does not have access to the Realtime voice model."
+                          : response.status === 429
+                            ? "The Realtime API quota or rate limit was reached. Check API billing and try again."
+                            : "OpenAI rejected the voice session. Check the server terminal for the reason.";
+
+                return res.status(response.status === 401 ? 401 : 502).json({
+                    error: publicError
                 });
             }
 

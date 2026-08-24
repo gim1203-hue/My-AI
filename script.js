@@ -205,6 +205,14 @@ async function startVoice() {
         return;
     }
 
+    if (!window.isSecureContext || !["http:", "https:"].includes(window.location.protocol)) {
+        setVoiceStatus(
+            "error",
+            "Open this app at http://localhost:3000 — voice cannot start from a file:// page."
+        );
+        return;
+    }
+
     voiceStarting = true;
     startVoiceButton.disabled = true;
     stopVoiceButton.disabled = false;
@@ -260,7 +268,8 @@ async function startVoice() {
         });
 
         if (!response.ok) {
-            throw new Error("The server could not create a voice session.");
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || "The server could not create a voice session.");
         }
 
         const answer = await response.text();
@@ -279,9 +288,16 @@ async function startVoice() {
             "error",
             permissionDenied
                 ? "Microphone permission was denied. Allow it in your browser settings and try again."
-                : "Voice could not start. Check the server terminal and try again."
+                : error?.message || "Voice could not start. Check the server terminal and try again."
         );
     }
+}
+
+if (window.location.protocol === "file:") {
+    setVoiceStatus(
+        "error",
+        "Open this app at http://localhost:3000 — voice cannot start from a file:// page."
+    );
 }
 
 form.addEventListener("submit", async function (event) {
