@@ -33,9 +33,180 @@ button:disabled {
 }
 
 .app-shell {
-    width: min(760px, calc(100% - 32px));
+    display: grid;
+    grid-template-columns: 280px minmax(0, 760px);
+    align-items: start;
+    justify-content: center;
+    gap: 22px;
+    width: min(1080px, calc(100% - 32px));
     margin: 0 auto;
     padding: 64px 0;
+}
+
+.content-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.content-column > header {
+    order: 0;
+}
+
+.content-column > .text-card {
+    order: 1;
+}
+
+.content-column > .voice-card {
+    order: 2;
+    margin-top: 20px;
+}
+
+.content-column > .document-card {
+    order: 3;
+}
+
+.workspace-panel {
+    position: sticky;
+    top: 24px;
+    display: grid;
+    gap: 18px;
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 20px;
+    background: rgba(18, 23, 35, 0.9);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(18px);
+}
+
+.sidebar-section {
+    display: grid;
+    gap: 12px;
+}
+
+.sidebar-section + .sidebar-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 18px;
+}
+
+.sidebar-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.compact-button,
+.task-form button {
+    min-height: 34px;
+    border: 0;
+    border-radius: 10px;
+    padding: 0 11px;
+    background: rgba(128, 108, 255, 0.2);
+    color: #e9e7ff;
+    font-weight: 750;
+}
+
+.thread-list,
+.task-list {
+    display: grid;
+    gap: 7px;
+}
+
+.thread-button {
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    padding: 10px 11px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #cfd5e2;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.thread-button[aria-current="true"] {
+    border-color: rgba(128, 108, 255, 0.5);
+    background: rgba(128, 108, 255, 0.15);
+    color: white;
+}
+
+.task-form {
+    display: flex;
+    gap: 7px;
+}
+
+#taskInput {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    outline: none;
+    padding: 0 10px;
+    background: rgba(5, 8, 14, 0.5);
+    color: white;
+}
+
+.task-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: start;
+    gap: 8px;
+    border-radius: 10px;
+    padding: 9px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.task-title-button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    overflow-wrap: anywhere;
+    color: #d7dce7;
+    font-size: 0.88rem;
+    text-align: left;
+}
+
+.task-item[data-completed="true"] .task-title-button {
+    color: #7f889b;
+    text-decoration: line-through;
+}
+
+.task-delete {
+    border: 0;
+    padding: 0 3px;
+    background: transparent;
+    color: #9da5b7;
+    font-size: 1.05rem;
+}
+
+.task-pin {
+    border: 0;
+    border-radius: 8px;
+    padding: 3px 6px;
+    background: #e9e3f2;
+    color: #62586e;
+    font-size: 0.72rem;
+    font-weight: 750;
+}
+
+.composer-mic {
+    min-height: 48px;
+    border: 1px solid #ddd7df;
+    border-radius: 14px;
+    padding: 0 14px;
+    background: #f5f2f6;
+    color: #403a44;
+    font-weight: 750;
+}
+
+.sidebar-empty {
+    margin: 0;
+    color: #7f899d;
+    font-size: 0.84rem;
 }
 
 header {
@@ -177,6 +348,9 @@ p {
 }
 
 .text-card {
+    display: flex;
+    min-height: 520px;
+    flex-direction: column;
     margin-top: 20px;
     padding: 24px;
 }
@@ -328,7 +502,11 @@ p {
 }
 
 .chat {
+    min-height: 280px;
+    max-height: 58vh;
+    overflow-y: auto;
     display: grid;
+    align-content: start;
     gap: 10px;
     margin-top: 18px;
 }
@@ -403,8 +581,184 @@ p {
     }
 }
 
+@media (max-width: 900px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .workspace-panel {
+        position: static;
+        max-height: none;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation: none !important;
     }
+}
+
+/* Light workspace layout inspired by the provided reference. */
+:root {
+    color-scheme: light;
+    background: #ffffff;
+    color: #252329;
+}
+
+body {
+    background: #ffffff;
+}
+
+.app-shell {
+    width: min(1320px, calc(100% - 24px));
+    grid-template-columns: 278px minmax(0, 900px);
+    gap: 32px;
+    padding: 22px 0 48px;
+}
+
+.workspace-panel {
+    top: 12px;
+    max-height: calc(100vh - 24px);
+    border-color: #e8e1e9;
+    border-radius: 18px;
+    background: #f7f2f8;
+    box-shadow: none;
+    color: #37323a;
+}
+
+.brand-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    border-bottom: 1px solid #e8e1e9;
+    padding: 2px 0 18px;
+}
+
+.brand-mark {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #6d5cff, #63a7ff);
+    box-shadow: 0 7px 18px rgba(92, 95, 225, 0.24);
+    color: white;
+    font-size: 0.82rem;
+    font-weight: 850;
+    letter-spacing: -0.02em;
+}
+
+.brand-name {
+    color: #242129;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.section-label,
+.eyebrow {
+    color: #77707d;
+}
+
+.compact-button,
+.task-form button {
+    background: #e9e3f2;
+    color: #4b4354;
+}
+
+.thread-button,
+.task-item {
+    background: transparent;
+    color: #49434d;
+}
+
+.thread-button:hover,
+.task-item:hover {
+    background: #eee8f0;
+}
+
+.thread-button[aria-current="true"] {
+    border-color: transparent;
+    background: #e5dfe7;
+    color: #242129;
+}
+
+#taskInput,
+#userInput,
+#documentQuestion {
+    border-color: #ded8e0;
+    background: white;
+    color: #252329;
+}
+
+.task-title-button {
+    color: #49434d;
+}
+
+.task-item[data-completed="true"] .task-title-button,
+.sidebar-empty {
+    color: #8b8490;
+}
+
+.content-column > header {
+    margin: 18px 0 22px;
+}
+
+h1 {
+    color: #242129;
+}
+
+.intro,
+.voice-help,
+.document-help {
+    color: #6e6873;
+}
+
+.voice-card,
+.text-card,
+.document-card {
+    border-color: #e7e3e8;
+    background: #ffffff;
+    box-shadow: 0 14px 42px rgba(44, 39, 48, 0.08);
+}
+
+.text-card {
+    min-height: 610px;
+}
+
+.chat-message {
+    background: #f5f3f6;
+}
+
+.chat-message p,
+.document-result,
+.search-option {
+    color: #37323a;
+}
+
+.search-option small,
+.text-status,
+.privacy-note {
+    color: #7c7581;
+}
+
+.voice-status,
+.file-picker {
+    border-color: #e5dfe7;
+    background: #faf8fb;
+    color: #4c4651;
+}
+
+.stop-button {
+    border-color: #ddd7df;
+    background: #f5f2f6;
+    color: #403a44;
+}
+
+#sendButton {
+    background: #28252c;
+    color: white;
+}
+
+.document-result:not(:empty) {
+    background: #f5f3f6;
 }
