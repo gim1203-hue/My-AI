@@ -637,6 +637,57 @@ function selectedUploads() {
     return [...(documentInput.files ?? []), ...(folderInput.files ?? [])];
 }
 
+const supportedUploadExtensions = [
+    ".pdf", ".doc", ".docx", ".txt", ".md", ".csv", ".html", ".htm",
+    ".css", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".json", ".xml",
+    ".py", ".java", ".c", ".cpp", ".h", ".sql", ".yaml", ".yml",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif"
+];
+
+function isSupportedUpload(file) {
+    const name = file.name.toLowerCase();
+    return file.size > 0 && supportedUploadExtensions.some((extension) => name.endsWith(extension));
+}
+
+function uploadBatchesForReview(files, question) {
+    const supported = files.filter(isSupportedUpload);
+    const wantsHtml = /\bhtml?\b/i.test(question);
+    if (wantsHtml) {
+        supported.sort((left, right) => {
+            const leftHtml = /\.html?$/i.test(left.name) ? 0 : 1;
+            const rightHtml = /\.html?$/i.test(right.name) ? 0 : 1;
+            return leftHtml - rightHtml;
+        });
+    }
+
+    const batches = [];
+    let currentBatch = [];
+    let currentSize = 0;
+    let skippedCount = files.length - supported.length;
+
+    for (const file of supported) {
+        if (file.size > 20 * 1024 * 1024) {
+            skippedCount += 1;
+            continue;
+        }
+
+        if (currentBatch.length >= 20 || currentSize + file.size > 20 * 1024 * 1024) {
+            batches.push(currentBatch);
+            currentBatch = [];
+            currentSize = 0;
+        }
+
+        currentBatch.push(file);
+        currentSize += file.size;
+    }
+
+    if (currentBatch.length) {
+        batches.push(currentBatch);
+    }
+
+    return { batches, skippedCount };
+}
+
 function updateSelectedFileSummary() {
     const files = selectedUploads();
     const totalMb = files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
@@ -669,9 +720,7 @@ function updateSelectedFileSummary() {
         selectedFilesList.append(item);
     }
 
-    documentStatus.textContent = files.length > 20 || totalMb > 20
-        ? "This selection is shown below, but choose no more than 20 files and 20 MB to analyze it."
-        : "Files are ready. Type what you want My AI to do, then press Analyze document.";
+    documentStatus.textContent = "Files are shown below. Type what you want My AI to do, then press Analyze document.";
 }
 
 documentInput.addEventListener("change", updateSelectedFileSummary);
@@ -688,39 +737,53 @@ documentForm.addEventListener("submit", async (event) => {
         return;
     }
 
-    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-    if (files.length > 20 || totalSize > 20 * 1024 * 1024) {
-        documentStatus.textContent = "Choose no more than 20 files and 20 MB total.";
+    const { batches, skippedCount } = uploadBatchesForReview(files, question);
+    if (batches.length === 0) {
+        documentStatus.textContent = "This folder has no supported documents, code, or images to analyze.";
         return;
     }
 
-    const payload = new FormData();
-    files.forEach((file) => {
-        payload.append("documents", file, file.webkitRelativePath || file.name);
-    });
-    payload.set(
-        "question",
-        question || "Summarize this document and suggest useful improvements or next steps."
-    );
+    if (batches.length > 1 && !window.confirm(
+        `This folder needs ${batches.length} separate AI analysis requests. Each request uses API credit. Continue?`
+    )) {
+        documentStatus.textContent = "Folder analysis canceled. No files were sent.";
+        return;
+    }
 
     analyzeDocumentButton.disabled = true;
-    documentStatus.textContent = "Uploading and reviewing your document...";
     documentResult.textContent = "";
 
     try {
-        const response = await fetch("/analyze-document", {
-            method: "POST",
-            body: payload
-        });
-        const data = await response.json();
+        const replies = [];
+        for (let index = 0; index < batches.length; index += 1) {
+            const batch = batches[index];
+            documentStatus.textContent = `Reviewing batch ${index + 1} of ${batches.length} (${batch.length} files)...`;
 
-        if (!response.ok) {
-            throw new Error(data.error || "The document could not be reviewed.");
+            const payload = new FormData();
+            batch.forEach((file) => {
+                payload.append("documents", file, file.webkitRelativePath || file.name);
+            });
+            payload.set(
+                "question",
+                `${question || "Summarize these files and suggest useful improvements or next steps."}\n\nThis is batch ${index + 1} of ${batches.length} from the selected folder.`
+            );
+
+            const response = await fetch("/analyze-document", {
+                method: "POST",
+                body: payload
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || `Batch ${index + 1} could not be reviewed.`);
+            }
+
+            replies.push(batches.length > 1 ? `Batch ${index + 1}\n${data.reply}` : data.reply);
         }
 
-        documentResult.textContent = data.reply;
-        documentStatus.textContent = data.skipped?.length
-            ? `Review complete. ${data.skipped.length} unsupported file(s) were skipped.`
+        documentResult.textContent = replies.join("\n\n────────────────────\n\n");
+        documentStatus.textContent = skippedCount
+            ? `Review complete. ${skippedCount} unsupported or oversized file(s) stayed on your device.`
             : "Review complete.";
     } catch (error) {
         documentStatus.textContent = error?.message || "Document review is temporarily unavailable.";
