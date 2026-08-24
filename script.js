@@ -15,6 +15,9 @@ const folderInput = document.getElementById("folderInput");
 const documentQuestion = document.getElementById("documentQuestion");
 const analyzeDocumentButton = document.getElementById("analyzeDocumentButton");
 const selectedFileName = document.getElementById("selectedFileName");
+const selectedFilesPanel = document.getElementById("selectedFilesPanel");
+const selectedFolderName = document.getElementById("selectedFolderName");
+const selectedFilesList = document.getElementById("selectedFilesList");
 const documentStatus = document.getElementById("documentStatus");
 const documentResult = document.getElementById("documentResult");
 const newChatButton = document.getElementById("newChatButton");
@@ -640,6 +643,35 @@ function updateSelectedFileSummary() {
     selectedFileName.textContent = files.length
         ? `${files.length} selected — ${totalMb.toFixed(1)} MB total`
         : "Documents, code, or images — up to 20 files and 20 MB total";
+
+    selectedFilesPanel.hidden = files.length === 0;
+    selectedFilesList.replaceChildren();
+
+    if (!files.length) {
+        selectedFolderName.textContent = "";
+        documentStatus.textContent = "";
+        return;
+    }
+
+    const firstPath = files[0].webkitRelativePath || "";
+    const folder = firstPath.includes("/") ? firstPath.split("/")[0] : "Selected files";
+    selectedFolderName.textContent = `${folder} — ${files.length} item${files.length === 1 ? "" : "s"}`;
+
+    files.slice(0, 50).forEach((file) => {
+        const item = document.createElement("li");
+        item.textContent = file.webkitRelativePath || file.name;
+        selectedFilesList.append(item);
+    });
+
+    if (files.length > 50) {
+        const item = document.createElement("li");
+        item.textContent = `And ${files.length - 50} more…`;
+        selectedFilesList.append(item);
+    }
+
+    documentStatus.textContent = files.length > 20 || totalMb > 20
+        ? "This selection is shown below, but choose no more than 20 files and 20 MB to analyze it."
+        : "Files are ready. Type what you want My AI to do, then press Analyze document.";
 }
 
 documentInput.addEventListener("change", updateSelectedFileSummary);

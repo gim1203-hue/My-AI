@@ -109,6 +109,12 @@
                     <input id="folderInput" name="folder" type="file" webkitdirectory multiple>
                 </label>
 
+                <div id="selectedFilesPanel" class="selected-files-panel" hidden>
+                    <strong>Selected on this device</strong>
+                    <p id="selectedFolderName"></p>
+                    <ul id="selectedFilesList"></ul>
+                </div>
+
                 <label class="document-question" for="documentQuestion">
                     <span>What should My AI do?</span>
                     <textarea id="documentQuestion" name="question" rows="3" placeholder="For example: Summarize this and suggest three improvements."></textarea>
@@ -119,7 +125,7 @@
 
             <p id="documentStatus" class="text-status" role="status" aria-live="polite"></p>
             <div id="documentResult" class="document-result" aria-live="polite"></div>
-            <p class="privacy-note document-privacy">The selected file is sent securely to OpenAI for this review and is not added to GitHub.</p>
+            <p class="privacy-note document-privacy">Selected files appear only in this workspace and are sent securely for the review. They are never added to GitHub.</p>
         </section>
         </div>
         </div>
