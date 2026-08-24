@@ -87,6 +87,16 @@ async function handleChatMessages(env, chatId) {
     return json({ messages: result.results ?? [] });
 }
 
+async function handleDeleteChat(env, chatId) {
+    await ensureDatabase(env);
+    await env.DB.batch([
+        env.DB.prepare("DELETE FROM tasks WHERE chat_id = ?").bind(chatId),
+        env.DB.prepare("DELETE FROM messages WHERE chat_id = ?").bind(chatId),
+        env.DB.prepare("DELETE FROM chats WHERE id = ?").bind(chatId)
+    ]);
+    return json({ ok: true });
+}
+
 async function handleCreateTask(request, env) {
     await ensureDatabase(env);
     const body = await readJson(request);
@@ -455,6 +465,10 @@ export default {
         const messageMatch = url.pathname.match(/^\/chats\/([^/]+)\/messages$/);
         if (request.method === "GET" && messageMatch) {
             return handleChatMessages(env, decodeURIComponent(messageMatch[1]));
+        }
+        const chatMatch = url.pathname.match(/^\/chats\/([^/]+)$/);
+        if (request.method === "DELETE" && chatMatch) {
+            return handleDeleteChat(env, decodeURIComponent(chatMatch[1]));
         }
         if (request.method === "POST" && url.pathname === "/tasks") {
             return handleCreateTask(request, env);

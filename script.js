@@ -116,6 +116,8 @@ function renderThreads() {
     }
 
     chatThreads.forEach((thread) => {
+        const row = document.createElement("div");
+        row.className = "thread-row";
         const button = document.createElement("button");
         button.type = "button";
         button.className = "thread-button";
@@ -123,8 +125,38 @@ function renderThreads() {
         button.title = thread.title;
         button.setAttribute("aria-current", String(thread.id === activeThreadId));
         button.addEventListener("click", () => selectThread(thread.id));
-        chatThreadList.appendChild(button);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "thread-delete";
+        remove.textContent = "×";
+        remove.setAttribute("aria-label", `Delete chat ${thread.title}`);
+        remove.addEventListener("click", () => deleteThread(thread));
+
+        row.append(button, remove);
+        chatThreadList.appendChild(row);
     });
+}
+
+async function deleteThread(thread) {
+    const approved = window.confirm(
+        `Delete “${thread.title}” and its saved messages? This cannot be undone.`
+    );
+    if (!approved) return;
+
+    const response = await fetch(`/chats/${encodeURIComponent(thread.id)}`, {
+        method: "DELETE"
+    });
+    if (!response.ok) {
+        textStatus.textContent = "That chat could not be deleted.";
+        return;
+    }
+
+    chatThreads = chatThreads.filter((item) => item.id !== thread.id);
+    tasks = tasks.filter((task) => task.chatId !== thread.id);
+    if (activeThreadId === thread.id) startNewChat();
+    renderThreads();
+    renderTasks();
 }
 
 function renderTasks() {
@@ -263,6 +295,12 @@ async function updateTask(taskId, completed, pinned) {
 }
 
 async function deleteTask(taskId) {
+    const task = tasks.find((item) => item.id === taskId);
+    const approved = window.confirm(
+        `Delete “${task?.title || "this task"}” and its saved chat? This cannot be undone.`
+    );
+    if (!approved) return;
+
     try {
         const response = await fetch(`/tasks/${encodeURIComponent(taskId)}`, {
             method: "DELETE"
