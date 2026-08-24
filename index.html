@@ -42,34 +42,12 @@
             </header>
 
         <div class="unified-workspace">
-        <section class="voice-card" aria-labelledby="voiceHeading">
-            <div>
-                <p class="section-label" id="voiceHeading">Live voice</p>
-                <p class="voice-help">Start a hands-free conversation. You can speak again whenever the assistant finishes.</p>
-            </div>
-
-            <div class="voice-controls">
-                <button id="startVoiceButton" class="voice-button" type="button">
-                    <span aria-hidden="true">●</span>
-                    Start voice
-                </button>
-                <button id="stopVoiceButton" class="stop-button" type="button" disabled>
-                    End voice
-                </button>
-            </div>
-
-            <div id="voiceStatus" class="voice-status" role="status" aria-live="polite" data-state="idle">
-                <span class="status-dot" aria-hidden="true"></span>
-                <span id="voiceStatusText">Voice is off</span>
-            </div>
-
-            <p class="privacy-note">Your browser will ask for microphone permission. Audio is sent only while voice chat is active.</p>
-            <p class="privacy-note">Ask for current information during voice chat and My AI can search the web; search status and clickable sources appear below.</p>
-            <audio id="voiceOutput" autoplay></audio>
-        </section>
-
-        <section class="text-card" aria-labelledby="textHeading">
+        <section class="text-card one-screen-workspace" aria-labelledby="textHeading">
             <p class="section-label" id="textHeading">Text chat</p>
+
+            <div id="chat" class="chat" aria-live="polite"></div>
+            <p id="textStatus" class="text-status" role="status" aria-live="polite"></p>
+
             <form id="chatForm" class="message-form">
                 <label class="sr-only" for="userInput">Message</label>
                 <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off">
@@ -77,55 +55,51 @@
                 <button id="sendButton" type="submit">Send</button>
             </form>
 
-            <label class="search-option" for="webSearchToggle">
-                <input type="checkbox" id="webSearchToggle">
-                <span>
-                    <strong>Search the web</strong>
-                    <small>Use current online sources for this message. This adds a web-search API call.</small>
-                </span>
-            </label>
+            <div class="workspace-tools">
+                <section class="compact-tool voice-tool" aria-labelledby="voiceHeading">
+                    <p class="section-label" id="voiceHeading">Voice &amp; search</p>
+                    <div class="voice-controls">
+                        <button id="startVoiceButton" class="voice-button" type="button"><span aria-hidden="true">●</span> Start voice</button>
+                        <button id="stopVoiceButton" class="stop-button" type="button" disabled>End voice</button>
+                    </div>
+                    <div id="voiceStatus" class="voice-status" role="status" aria-live="polite" data-state="idle">
+                        <span class="status-dot" aria-hidden="true"></span>
+                        <span id="voiceStatusText">Voice is off</span>
+                    </div>
+                    <label class="search-option" for="webSearchToggle">
+                        <input type="checkbox" id="webSearchToggle">
+                        <span><strong>Search the web</strong><small>Use current sources for this message.</small></span>
+                    </label>
+                    <audio id="voiceOutput" autoplay></audio>
+                </section>
 
-            <p id="textStatus" class="text-status" role="status" aria-live="polite"></p>
-
-            <div id="chat" class="chat" aria-live="polite"></div>
-        </section>
-
-        <section class="document-card" aria-labelledby="documentHeading">
-            <div>
-                <p class="section-label" id="documentHeading">Document review</p>
-                <p class="document-help">Upload a document and ask My AI to summarize it, review it, or suggest improvements.</p>
+                <section class="compact-tool upload-tool" aria-labelledby="documentHeading">
+                    <p class="section-label" id="documentHeading">Files &amp; folders</p>
+                    <form id="documentForm" class="document-form">
+                        <div class="upload-pickers">
+                            <label class="file-picker" for="folderInput">
+                                <strong>Choose folder</strong>
+                                <input id="folderInput" name="folder" type="file" webkitdirectory multiple>
+                            </label>
+                            <label class="file-picker" for="documentInput">
+                                <strong>Choose files</strong>
+                                <span id="selectedFileName">Documents, code, or images</span>
+                                <input id="documentInput" name="documents" type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.html,.htm,.css,.js,.mjs,.ts,.tsx,.jsx,.json,.xml,.py,.java,.c,.cpp,.h,.sql,.yaml,.yml,.png,.jpg,.jpeg,.webp,.gif">
+                            </label>
+                        </div>
+                        <div id="selectedFilesPanel" class="selected-files-panel" hidden>
+                            <strong>Selected on this device</strong>
+                            <p id="selectedFolderName"></p>
+                            <ul id="selectedFilesList"></ul>
+                        </div>
+                        <p class="single-prompt-note">Use the “Type your message” box above, then press Send or Analyze.</p>
+                        <button id="analyzeDocumentButton" type="submit">Analyze selected files</button>
+                    </form>
+                    <p id="documentStatus" class="text-status" role="status" aria-live="polite"></p>
+                    <div id="documentResult" class="document-result" aria-live="polite" hidden></div>
+                    <p class="privacy-note document-privacy">Selected files stay off GitHub.</p>
+                </section>
             </div>
-
-            <form id="documentForm" class="document-form">
-                <label class="file-picker" for="documentInput">
-                    <strong>Choose files</strong>
-                    <span id="selectedFileName">Documents, code, or images — up to 20 files and 20 MB total</span>
-                    <input id="documentInput" name="documents" type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.html,.htm,.css,.js,.mjs,.ts,.tsx,.jsx,.json,.xml,.py,.java,.c,.cpp,.h,.sql,.yaml,.yml,.png,.jpg,.jpeg,.webp,.gif">
-                </label>
-
-                <label class="file-picker" for="folderInput">
-                    <strong>Choose a folder</strong>
-                    <span>Select a project folder; unsupported binary files will be skipped.</span>
-                    <input id="folderInput" name="folder" type="file" webkitdirectory multiple>
-                </label>
-
-                <div id="selectedFilesPanel" class="selected-files-panel" hidden>
-                    <strong>Selected on this device</strong>
-                    <p id="selectedFolderName"></p>
-                    <ul id="selectedFilesList"></ul>
-                </div>
-
-                <label class="document-question" for="documentQuestion">
-                    <span>What should My AI do?</span>
-                    <textarea id="documentQuestion" name="question" rows="3" placeholder="For example: Summarize this and suggest three improvements."></textarea>
-                </label>
-
-                <button id="analyzeDocumentButton" type="submit">Analyze document</button>
-            </form>
-
-            <p id="documentStatus" class="text-status" role="status" aria-live="polite"></p>
-            <div id="documentResult" class="document-result" aria-live="polite"></div>
-            <p class="privacy-note document-privacy">Selected files appear only in this workspace and are sent securely for the review. They are never added to GitHub.</p>
         </section>
         </div>
         </div>

@@ -12,7 +12,7 @@ const voiceOutput = document.getElementById("voiceOutput");
 const documentForm = document.getElementById("documentForm");
 const documentInput = document.getElementById("documentInput");
 const folderInput = document.getElementById("folderInput");
-const documentQuestion = document.getElementById("documentQuestion");
+const documentQuestion = input;
 const analyzeDocumentButton = document.getElementById("analyzeDocumentButton");
 const selectedFileName = document.getElementById("selectedFileName");
 const selectedFilesPanel = document.getElementById("selectedFilesPanel");
@@ -552,6 +552,11 @@ form.addEventListener("submit", async function (event) {
     event.preventDefault();
     const message = input.value.trim();
 
+    if (selectedUploads().length > 0) {
+        documentForm.requestSubmit();
+        return;
+    }
+
     if (message === "") {
         return;
     }
@@ -693,7 +698,7 @@ function updateSelectedFileSummary() {
     const totalMb = files.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024;
     selectedFileName.textContent = files.length
         ? `${files.length} selected — ${totalMb.toFixed(1)} MB total`
-        : "Documents, code, or images — up to 20 files and 20 MB total";
+        : "Documents, code, or images";
 
     selectedFilesPanel.hidden = files.length === 0;
     selectedFilesList.replaceChildren();
@@ -781,7 +786,15 @@ documentForm.addEventListener("submit", async (event) => {
             replies.push(batches.length > 1 ? `Batch ${index + 1}\n${data.reply}` : data.reply);
         }
 
-        documentResult.textContent = replies.join("\n\n────────────────────\n\n");
+        const combinedReply = replies.join("\n\n────────────────────\n\n");
+        appendChatMessage("You", question || "Analyze the selected files.");
+        appendChatMessage("My AI", combinedReply, [], true);
+        chat.scrollTop = chat.scrollHeight;
+        documentResult.textContent = "";
+        input.value = "";
+        documentInput.value = "";
+        folderInput.value = "";
+        updateSelectedFileSummary();
         documentStatus.textContent = skippedCount
             ? `Review complete. ${skippedCount} unsupported or oversized file(s) stayed on your device.`
             : "Review complete.";
