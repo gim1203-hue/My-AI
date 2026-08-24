@@ -375,6 +375,104 @@ function arrayBufferToBase64(buffer) {
     return btoa(binary);
 }
 
+async function handleProposeEdits(request, env) {
+    try {
+        const body = await readJson(request);
+        const instruction = typeof body.instruction === "string" ? body.instruction.trim() : "";
+        const rawFiles = Array.isArray(body.files) ? body.files : [];
+
+        if (!instruction || instruction.length > 4000) {
+            return json({ error: "Type a clear, shorter change request first." }, 400);
+        }
+        if (rawFiles.length === 0 || rawFiles.length > 40) {
+            return json({ error: "Connect a folder containing up to 40 relevant text or code files." }, 400);
+        }
+
+        const files = [];
+        let totalCharacters = 0;
+        for (const item of rawFiles) {
+            const path = typeof item?.path === "string" ? item.path.replace(/\\/g, "/") : "";
+            const content = typeof item?.content === "string" ? item.content : null;
+            const invalidPath = !path || path.startsWith("/") || path.split("/").includes("..");
+            if (invalidPath || content === null) {
+                return json({ error: "One of the selected file paths is invalid." }, 400);
+            }
+            totalCharacters += content.length;
+            files.push({ path, content });
+        }
+
+        if (totalCharacters > 400_000) {
+            return json({ error: "Choose a smaller set of files for one change proposal." }, 413);
+        }
+
+        const fileText = files
+            .map(({ path, content }) => `\n<file path="${path}">\n${content}\n</file>`)
+            .join("\n");
+        const response = await openAIResponse(env, {
+            model: "gpt-5.6-luna",
+            store: false,
+            instructions:
+                "You propose precise edits to user-provided text and code files. Return only files that actually need changes. Never invent paths, never include binary data, preserve unrelated content, and provide the complete replacement content for every changed file.",
+            input: `Requested change:\n${instruction}\n\nAvailable files:${fileText}`,
+            max_output_tokens: 20000,
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "file_change_proposal",
+                    strict: true,
+                    schema: {
+                        type: "object",
+                        properties: {
+                            summary: { type: "string" },
+                            changes: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        path: { type: "string" },
+                                        content: { type: "string" },
+                                        explanation: { type: "string" }
+                                    },
+                                    required: ["path", "content", "explanation"],
+                                    additionalProperties: false
+                                }
+                            }
+                        },
+                        required: ["summary", "changes"],
+                        additionalProperties: false
+                    }
+                }
+            }
+        });
+
+        const proposal = JSON.parse(outputText(response));
+        const allowedPaths = new Set(files.map((file) => file.path));
+        const seenPaths = new Set();
+        const changes = (Array.isArray(proposal.changes) ? proposal.changes : [])
+            .filter((change) => {
+                const valid =
+                    allowedPaths.has(change.path) &&
+                    !seenPaths.has(change.path) &&
+                    typeof change.content === "string" &&
+                    typeof change.explanation === "string";
+                if (valid) seenPaths.add(change.path);
+                return valid;
+            })
+            .map((change) => {
+                seenPaths.add(change.path);
+                return change;
+            });
+
+        return json({
+            summary: typeof proposal.summary === "string" ? proposal.summary : "Review the proposed changes.",
+            changes
+        });
+    } catch (error) {
+        console.error("Edit proposal failed:", error?.message ?? "Unknown error");
+        return json({ error: "File changes could not be proposed right now." }, 502);
+    }
+}
+
 async function handleDocumentAnalysis(request, env) {
     try {
         const form = await request.formData();
@@ -492,6 +590,9 @@ export default {
         }
         if (request.method === "POST" && url.pathname === "/analyze-document") {
             return handleDocumentAnalysis(request, env);
+        }
+        if (request.method === "POST" && url.pathname === "/propose-edits") {
+            return handleProposeEdits(request, env);
         }
 
         return env.ASSETS.fetch(request);

@@ -7,7 +7,7 @@ dotenv.config();
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -108,6 +108,96 @@ app.post("/web-search", async (req, res) => {
     } catch (error) {
         console.error("Web search failed:", error?.message ?? "Unknown error");
         res.status(502).json({ error: "Web search is temporarily unavailable." });
+    }
+});
+
+app.post("/propose-edits", async (req, res) => {
+    try {
+        const instruction = typeof req.body.instruction === "string" ? req.body.instruction.trim() : "";
+        const rawFiles = Array.isArray(req.body.files) ? req.body.files : [];
+
+        if (!instruction || instruction.length > 4000) {
+            return res.status(400).json({ error: "Type a clear, shorter change request first." });
+        }
+        if (rawFiles.length === 0 || rawFiles.length > 40) {
+            return res.status(400).json({ error: "Connect a folder containing up to 40 relevant text or code files." });
+        }
+
+        let totalCharacters = 0;
+        const files = rawFiles.map((item) => {
+            const path = typeof item?.path === "string" ? item.path.replace(/\\/g, "/") : "";
+            const content = typeof item?.content === "string" ? item.content : null;
+            if (!path || path.startsWith("/") || path.split("/").includes("..") || content === null) {
+                throw new Error("INVALID_FILE_PATH");
+            }
+            totalCharacters += content.length;
+            return { path, content };
+        });
+
+        if (totalCharacters > 400_000) {
+            return res.status(413).json({ error: "Choose a smaller set of files for one change proposal." });
+        }
+
+        const fileText = files
+            .map(({ path, content }) => `\n<file path="${path}">\n${content}\n</file>`)
+            .join("\n");
+        const response = await client.responses.create({
+            model: "gpt-5.6-luna",
+            store: false,
+            instructions:
+                "You propose precise edits to user-provided text and code files. Return only files that actually need changes. Never invent paths, preserve unrelated content, and provide complete replacement content for every changed file.",
+            input: `Requested change:\n${instruction}\n\nAvailable files:${fileText}`,
+            max_output_tokens: 20000,
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "file_change_proposal",
+                    strict: true,
+                    schema: {
+                        type: "object",
+                        properties: {
+                            summary: { type: "string" },
+                            changes: {
+                                type: "array",
+                                items: {
+                                    type: "object",
+                                    properties: {
+                                        path: { type: "string" },
+                                        content: { type: "string" },
+                                        explanation: { type: "string" }
+                                    },
+                                    required: ["path", "content", "explanation"],
+                                    additionalProperties: false
+                                }
+                            }
+                        },
+                        required: ["summary", "changes"],
+                        additionalProperties: false
+                    }
+                }
+            }
+        });
+
+        const proposal = JSON.parse(response.output_text);
+        const allowedPaths = new Set(files.map((file) => file.path));
+        const seenPaths = new Set();
+        const changes = (Array.isArray(proposal.changes) ? proposal.changes : []).filter((change) => {
+            const valid =
+                allowedPaths.has(change.path) &&
+                !seenPaths.has(change.path) &&
+                typeof change.content === "string" &&
+                typeof change.explanation === "string";
+            if (valid) seenPaths.add(change.path);
+            return valid;
+        });
+
+        res.json({ summary: proposal.summary, changes });
+    } catch (error) {
+        if (error?.message === "INVALID_FILE_PATH") {
+            return res.status(400).json({ error: "One of the selected file paths is invalid." });
+        }
+        console.error("Edit proposal failed:", error?.message ?? "Unknown error");
+        res.status(502).json({ error: "File changes could not be proposed right now." });
     }
 });
 

@@ -26,6 +26,18 @@ const taskForm = document.getElementById("taskForm");
 const taskInput = document.getElementById("taskInput");
 const taskList = document.getElementById("taskList");
 const composerMicButton = document.getElementById("composerMicButton");
+const connectFolderButton = document.getElementById("connectFolderButton");
+const proposeChangesButton = document.getElementById("proposeChangesButton");
+const editableFolderStatus = document.getElementById("editableFolderStatus");
+const editProposal = document.getElementById("editProposal");
+const editProposalSummary = document.getElementById("editProposalSummary");
+const editProposalList = document.getElementById("editProposalList");
+const applyChangesButton = document.getElementById("applyChangesButton");
+const connectedFileSelect = document.getElementById("connectedFileSelect");
+const codeEditor = document.getElementById("codeEditor");
+const codeEditorStatus = document.getElementById("codeEditorStatus");
+const copyCodeButton = document.getElementById("copyCodeButton");
+const saveCodeButton = document.getElementById("saveCodeButton");
 
 let peerConnection = null;
 let microphoneStream = null;
@@ -34,6 +46,11 @@ let voiceStarting = false;
 let activeThreadId = null;
 let chatThreads = [];
 let tasks = [];
+let connectedDirectoryHandle = null;
+let connectedFolderFiles = [];
+let connectedFileHandles = new Map();
+let pendingFileChanges = [];
+let activeEditablePath = null;
 
 function setVoiceStatus(state, message) {
     voiceStatus.dataset.state = state;
@@ -639,7 +656,7 @@ taskForm.addEventListener("submit", async (event) => {
 loadWorkspace();
 
 function selectedUploads() {
-    return [...(documentInput.files ?? []), ...(folderInput.files ?? [])];
+    return [...(documentInput.files ?? []), ...(folderInput.files ?? []), ...connectedFolderFiles];
 }
 
 const supportedUploadExtensions = [
@@ -653,6 +670,306 @@ function isSupportedUpload(file) {
     const name = file.name.toLowerCase();
     return file.size > 0 && supportedUploadExtensions.some((extension) => name.endsWith(extension));
 }
+
+const editableTextExtensions = [
+    ".txt", ".md", ".csv", ".html", ".htm", ".css", ".js", ".mjs",
+    ".ts", ".tsx", ".jsx", ".json", ".xml", ".py", ".java", ".c",
+    ".cpp", ".h", ".sql", ".yaml", ".yml"
+];
+
+function isEditableTextFile(name) {
+    const lowerName = name.toLowerCase();
+    return editableTextExtensions.some((extension) => lowerName.endsWith(extension));
+}
+
+async function collectEditableFolderFiles(directoryHandle, relativePath = "", result = []) {
+    const ignoredDirectories = new Set([".git", "node_modules", "dist", "build", ".wrangler", ".my-ai-backups"]);
+
+    for await (const [name, handle] of directoryHandle.entries()) {
+        if (handle.kind === "directory") {
+            if (!ignoredDirectories.has(name)) {
+                await collectEditableFolderFiles(handle, `${relativePath}${name}/`, result);
+            }
+            continue;
+        }
+
+        if (!isSupportedUpload({ name, size: 1 })) {
+            continue;
+        }
+
+        const file = await handle.getFile();
+        Object.defineProperty(file, "myAiRelativePath", {
+            value: `${relativePath}${name}`,
+            configurable: true
+        });
+        result.push(file);
+        connectedFileHandles.set(`${relativePath}${name}`, handle);
+    }
+
+    return result;
+}
+
+async function connectEditableFolder() {
+    if (!("showDirectoryPicker" in window)) {
+        editableFolderStatus.textContent = "Editable folders require a current Chrome or Edge browser.";
+        return;
+    }
+
+    try {
+        const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+        connectedFileHandles = new Map();
+        connectedDirectoryHandle = handle;
+        connectedFolderFiles = await collectEditableFolderFiles(handle);
+        populateConnectedFileSelect();
+        folderInput.value = "";
+        documentInput.value = "";
+        updateSelectedFileSummary();
+        proposeChangesButton.disabled = connectedFolderFiles.length === 0;
+        editableFolderStatus.textContent = connectedFolderFiles.length
+            ? `${handle.name} connected — ${connectedFolderFiles.length} readable file(s). Nothing changes until you approve it.`
+            : `${handle.name} connected, but no supported readable files were found.`;
+    } catch (error) {
+        if (error?.name !== "AbortError") {
+            editableFolderStatus.textContent = "The folder could not be connected. Check the browser permission and try again.";
+        }
+    }
+}
+
+function populateConnectedFileSelect() {
+    connectedFileSelect.replaceChildren();
+    const paths = [...connectedFileHandles.keys()].filter(isEditableTextFile).sort();
+
+    if (!paths.length) {
+        const option = document.createElement("option");
+        option.textContent = "No editable text or code files found";
+        connectedFileSelect.append(option);
+        connectedFileSelect.disabled = true;
+        codeEditor.disabled = true;
+        copyCodeButton.disabled = true;
+        saveCodeButton.disabled = true;
+        return;
+    }
+
+    paths.forEach((path) => {
+        const option = document.createElement("option");
+        option.value = path;
+        option.textContent = path;
+        connectedFileSelect.append(option);
+    });
+    connectedFileSelect.disabled = false;
+    connectedFileSelect.selectedIndex = 0;
+    loadSelectedConnectedFile();
+}
+
+async function loadSelectedConnectedFile() {
+    const path = connectedFileSelect.value;
+    const handle = connectedFileHandles.get(path);
+    if (!handle) return;
+
+    try {
+        const file = await handle.getFile();
+        codeEditor.value = await file.text();
+        activeEditablePath = path;
+        codeEditor.disabled = false;
+        copyCodeButton.disabled = false;
+        saveCodeButton.disabled = false;
+        codeEditorStatus.textContent = `${path} — edit here, copy it, or save with a backup.`;
+    } catch {
+        codeEditorStatus.textContent = "That file could not be opened.";
+    }
+}
+
+async function copyVisibleCode() {
+    try {
+        await navigator.clipboard.writeText(codeEditor.value);
+        codeEditorStatus.textContent = `${activeEditablePath} copied to the clipboard.`;
+    } catch {
+        codeEditorStatus.textContent = "The browser could not copy the code. Select it manually and press Control-C.";
+    }
+}
+
+async function saveVisibleCode() {
+    const handle = connectedFileHandles.get(activeEditablePath);
+    if (!handle || !connectedDirectoryHandle) return;
+
+    if (!window.confirm(`Save your changes to ${activeEditablePath}? The original will be backed up first.`)) {
+        codeEditorStatus.textContent = "No file was changed.";
+        return;
+    }
+
+    const permission = await connectedDirectoryHandle.requestPermission({ mode: "readwrite" });
+    if (permission !== "granted") {
+        codeEditorStatus.textContent = "Write permission was not granted. No file was changed.";
+        return;
+    }
+
+    saveCodeButton.disabled = true;
+    try {
+        const originalContent = await (await handle.getFile()).text();
+        const backupName = new Date().toISOString().replace(/[:.]/g, "-");
+        await createBackupFile(connectedDirectoryHandle, backupName, activeEditablePath, originalContent);
+        const writable = await handle.createWritable();
+        await writable.write(codeEditor.value);
+        await writable.close();
+        codeEditorStatus.textContent = `${activeEditablePath} saved. The original is in .my-ai-backups.`;
+    } catch (error) {
+        codeEditorStatus.textContent = error?.message || "The file could not be saved.";
+    } finally {
+        saveCodeButton.disabled = false;
+    }
+}
+
+function renderEditProposal(proposal) {
+    pendingFileChanges = proposal.changes;
+    editProposalSummary.textContent = proposal.summary;
+    editProposalList.replaceChildren();
+
+    proposal.changes.forEach((change, index) => {
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        const text = document.createElement("span");
+        const explanation = document.createElement("small");
+
+        checkbox.type = "checkbox";
+        checkbox.checked = true;
+        checkbox.dataset.changeIndex = String(index);
+        text.append(change.path);
+        explanation.textContent = change.explanation;
+        text.append(explanation);
+        label.append(checkbox, text);
+        editProposalList.append(label);
+    });
+
+    editProposal.hidden = false;
+    applyChangesButton.disabled = proposal.changes.length === 0;
+}
+
+async function proposeFolderChanges() {
+    const instruction = input.value.trim();
+    if (!connectedDirectoryHandle) {
+        editableFolderStatus.textContent = "Connect an editable folder first.";
+        return;
+    }
+    if (!instruction) {
+        editableFolderStatus.textContent = "Type the change you want in the message box first.";
+        input.focus();
+        return;
+    }
+
+    const candidates = [];
+    let totalCharacters = 0;
+    for (const file of connectedFolderFiles) {
+        const path = file.myAiRelativePath || file.name;
+        if (!isEditableTextFile(path) || candidates.length >= 40) continue;
+        const content = await file.text();
+        if (totalCharacters + content.length > 400_000) continue;
+        candidates.push({ path, content });
+        totalCharacters += content.length;
+    }
+
+    if (!candidates.length) {
+        editableFolderStatus.textContent = "No editable text or code files were found in that folder.";
+        return;
+    }
+
+    if (!window.confirm(
+        `Send ${candidates.length} text or code file(s) to OpenAI to propose changes? No local files will be changed yet.`
+    )) {
+        editableFolderStatus.textContent = "Change proposal canceled. No files were sent.";
+        return;
+    }
+
+    proposeChangesButton.disabled = true;
+    editableFolderStatus.textContent = "Reading the connected folder and preparing proposed changes...";
+    try {
+        const response = await fetch("/propose-edits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instruction, files: candidates })
+        });
+        const proposal = await response.json();
+        if (!response.ok) {
+            throw new Error(proposal.error || "Changes could not be proposed.");
+        }
+        renderEditProposal(proposal);
+        editableFolderStatus.textContent = "Review the proposed files below. Nothing has been written yet.";
+    } catch (error) {
+        editableFolderStatus.textContent = error?.message || "Changes could not be proposed.";
+    } finally {
+        proposeChangesButton.disabled = false;
+    }
+}
+
+async function createBackupFile(rootHandle, backupName, relativePath, originalContent) {
+    let directory = await rootHandle.getDirectoryHandle(".my-ai-backups", { create: true });
+    directory = await directory.getDirectoryHandle(backupName, { create: true });
+    const parts = relativePath.split("/");
+    const fileName = parts.pop();
+    for (const part of parts) {
+        directory = await directory.getDirectoryHandle(part, { create: true });
+    }
+    const backupHandle = await directory.getFileHandle(fileName, { create: true });
+    const writable = await backupHandle.createWritable();
+    await writable.write(originalContent);
+    await writable.close();
+}
+
+async function applyApprovedChanges() {
+    const approved = [...editProposalList.querySelectorAll('input[type="checkbox"]:checked')]
+        .map((checkbox) => pendingFileChanges[Number(checkbox.dataset.changeIndex)])
+        .filter(Boolean);
+
+    if (!approved.length) {
+        editableFolderStatus.textContent = "Select at least one proposed file change.";
+        return;
+    }
+
+    if (!window.confirm(
+        `Apply ${approved.length} selected change(s) to ${connectedDirectoryHandle.name}? Original files will be backed up first.`
+    )) {
+        editableFolderStatus.textContent = "No local files were changed.";
+        return;
+    }
+
+    const permission = await connectedDirectoryHandle.requestPermission({ mode: "readwrite" });
+    if (permission !== "granted") {
+        editableFolderStatus.textContent = "Write permission was not granted. No files were changed.";
+        return;
+    }
+
+    applyChangesButton.disabled = true;
+    const backupName = new Date().toISOString().replace(/[:.]/g, "-");
+    try {
+        for (const change of approved) {
+            const handle = connectedFileHandles.get(change.path);
+            if (!handle) throw new Error(`The file ${change.path} is no longer available.`);
+            const originalContent = await (await handle.getFile()).text();
+            await createBackupFile(connectedDirectoryHandle, backupName, change.path, originalContent);
+            const writable = await handle.createWritable();
+            await writable.write(change.content);
+            await writable.close();
+        }
+
+        connectedFileHandles = new Map();
+        connectedFolderFiles = await collectEditableFolderFiles(connectedDirectoryHandle);
+        populateConnectedFileSelect();
+        updateSelectedFileSummary();
+        editProposal.hidden = true;
+        pendingFileChanges = [];
+        editableFolderStatus.textContent = `${approved.length} file(s) updated. Backups are saved inside .my-ai-backups.`;
+    } catch (error) {
+        editableFolderStatus.textContent = error?.message || "The approved changes could not be applied.";
+    } finally {
+        applyChangesButton.disabled = false;
+    }
+}
+
+connectFolderButton.addEventListener("click", connectEditableFolder);
+proposeChangesButton.addEventListener("click", proposeFolderChanges);
+applyChangesButton.addEventListener("click", applyApprovedChanges);
+connectedFileSelect.addEventListener("change", loadSelectedConnectedFile);
+copyCodeButton.addEventListener("click", copyVisibleCode);
+saveCodeButton.addEventListener("click", saveVisibleCode);
 
 function uploadBatchesForReview(files, question) {
     const supported = files.filter(isSupportedUpload);
@@ -709,13 +1026,13 @@ function updateSelectedFileSummary() {
         return;
     }
 
-    const firstPath = files[0].webkitRelativePath || "";
+    const firstPath = files[0].webkitRelativePath || files[0].myAiRelativePath || "";
     const folder = firstPath.includes("/") ? firstPath.split("/")[0] : "Selected files";
     selectedFolderName.textContent = `${folder} — ${files.length} item${files.length === 1 ? "" : "s"}`;
 
     files.slice(0, 50).forEach((file) => {
         const item = document.createElement("li");
-        item.textContent = file.webkitRelativePath || file.name;
+        item.textContent = file.webkitRelativePath || file.myAiRelativePath || file.name;
         selectedFilesList.append(item);
     });
 
@@ -766,7 +1083,7 @@ documentForm.addEventListener("submit", async (event) => {
 
             const payload = new FormData();
             batch.forEach((file) => {
-                payload.append("documents", file, file.webkitRelativePath || file.name);
+                payload.append("documents", file, file.webkitRelativePath || file.myAiRelativePath || file.name);
             });
             payload.set(
                 "question",
