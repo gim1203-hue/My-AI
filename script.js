@@ -1,5 +1,14 @@
 
 const API_BASE_URL = "https://my-ai-2-8ttc.onrender.com";
+const originalFetch = window.fetch.bind(window);
+
+window.fetch = (input, options) => {
+    if (typeof input === "string" && input.startsWith("/")) {
+        return originalFetch(`${API_BASE_URL}${input}`, options);
+    }
+
+    return originalFetch(input, options);
+};
 
 const input = document.getElementById("userInput");
 const form = document.getElementById("chatForm");
