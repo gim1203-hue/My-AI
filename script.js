@@ -1,3 +1,7 @@
+
+const API_BASE_URL = "https://my-ai-2-8ttc.onrender.com";
+const app = express();
+
 const input = document.getElementById("userInput");
 const form = document.getElementById("chatForm");
 const chat = document.getElementById("chat");
