@@ -4,11 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My AI</title>
-
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
+    <button type="button" id="aiRestoreLauncher" class="ai-restore-launcher" hidden aria-label="Open My AI">
+        <span class="ai-window-dot" aria-hidden="true"></span> My AI
+    </button>
+
+    <div id="aiWindow" class="ai-window" data-state="normal">
+        <div class="ai-window-titlebar" id="aiWindowTitlebar">
+            <div class="ai-window-title"><span class="ai-window-dot" aria-hidden="true"></span> My AI</div>
+            <div class="ai-window-controls">
+                <button type="button" id="aiMinimizeBtn" class="ai-window-btn" aria-label="Minimize" title="Minimize">&#9472;</button>
+                <button type="button" id="aiMaximizeBtn" class="ai-window-btn" aria-label="Maximize" title="Maximize">&#9723;</button>
+            </div>
+        </div>
+        <div class="ai-window-body" id="aiWindowBody">
     <main class="app-shell">
         <aside class="workspace-panel" aria-label="Chats and tasks">
             <div class="brand-row" aria-label="My AI home">
@@ -52,6 +65,9 @@
                 <label class="sr-only" for="userInput">Message</label>
                 <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off">
                 <button id="composerMicButton" class="composer-mic" type="button" aria-label="Start voice chat">Mic</button>
+                <button id="openSearchBtn" class="composer-mic tool-launch-btn" type="button" aria-label="Open web search">&#128269;</button>
+                <button id="openRecordBtn" class="composer-mic tool-launch-btn" type="button" aria-label="Open record and playback">&#9210;</button>
+                <button id="openCameraBtn" class="composer-mic tool-launch-btn" type="button" aria-label="Open camera">&#128247;</button>
                 <button id="sendButton" type="submit">Send</button>
             </form>
 
@@ -133,6 +149,68 @@
         </div>
         </div>
     </main>
+        </div>
+        <div class="ai-resize-handle" id="aiResizeHandle" aria-hidden="true"></div>
+    </div>
+
+    <!-- ===================== WEB SEARCH ===================== -->
+    <div class="tool-modal-backdrop" id="searchModalBackdrop" hidden>
+        <div class="tool-modal" role="dialog" aria-labelledby="searchModalTitle">
+            <div class="tool-modal-head">
+                <h2 id="searchModalTitle">&#128269; Web Search</h2>
+                <button type="button" class="tool-modal-close" id="searchModalClose" aria-label="Close">&times;</button>
+            </div>
+            <form id="searchToolForm" class="tool-search-bar">
+                <label class="sr-only" for="searchToolInput">Search the web</label>
+                <input type="search" id="searchToolInput" placeholder="Search the web..." autocomplete="off">
+                <button type="submit" id="searchToolButton">Search</button>
+            </form>
+            <p id="searchToolStatus" class="text-status" role="status" aria-live="polite"></p>
+            <div id="searchToolResults" class="search-results-list"></div>
+        </div>
+    </div>
+
+    <!-- ===================== RECORD & PLAYBACK ===================== -->
+    <div class="tool-modal-backdrop" id="recordModalBackdrop" hidden>
+        <div class="tool-modal" role="dialog" aria-labelledby="recordModalTitle">
+            <div class="tool-modal-head">
+                <h2 id="recordModalTitle">&#9210; Record &amp; Playback</h2>
+                <button type="button" class="tool-modal-close" id="recordModalClose" aria-label="Close">&times;</button>
+            </div>
+            <p class="tool-modal-help">Record up to 24 hours from your microphone, then play it back or download it. Nothing is uploaded — it stays on this device.</p>
+            <div class="record-controls">
+                <button type="button" id="startRecordButton" class="voice-button"><span aria-hidden="true">&#9679;</span> Start recording</button>
+                <button type="button" id="stopRecordButton" class="stop-button" disabled>Stop</button>
+                <span id="recordTimer" class="record-timer">00:00:00</span>
+            </div>
+            <p id="recordStatus" class="text-status" role="status" aria-live="polite">Not recording.</p>
+            <div id="recordPlaybackWrap" class="record-playback-wrap" hidden>
+                <audio id="recordPlayback" controls></audio>
+                <a id="recordDownloadLink" class="edit-folder-button record-download" download="my-ai-recording.webm">Download recording</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== CAMERA ===================== -->
+    <div class="tool-modal-backdrop" id="cameraModalBackdrop" hidden>
+        <div class="tool-modal" role="dialog" aria-labelledby="cameraModalTitle">
+            <div class="tool-modal-head">
+                <h2 id="cameraModalTitle">&#128247; Camera</h2>
+                <button type="button" class="tool-modal-close" id="cameraModalClose" aria-label="Close">&times;</button>
+            </div>
+            <p id="cameraStatus" class="text-status" role="status" aria-live="polite">Camera is off.</p>
+            <div class="camera-screen" id="cameraScreen">
+                <video id="cameraPreview" autoplay playsinline muted></video>
+                <canvas id="cameraCanvas" hidden></canvas>
+            </div>
+            <div class="camera-controls">
+                <button type="button" id="openCameraStreamButton" class="voice-button"><span aria-hidden="true">&#9679;</span> Turn on camera</button>
+                <button type="button" id="capturePhotoButton" class="stop-button" disabled>Capture photo</button>
+                <button type="button" id="closeCameraStreamButton" class="stop-button" disabled>Turn off camera</button>
+            </div>
+            <div id="cameraGallery" class="camera-gallery" aria-live="polite"></div>
+        </div>
+    </div>
 
     <script type="module" src="/script.js"></script>
 </body>

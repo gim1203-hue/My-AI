@@ -1167,3 +1167,405 @@ body {
         padding-left: 0;
     }
 }
+
+/* ============================================================
+   FLOATING WINDOW CHROME — added: resizable / minimizable /
+   maximizable window frame wrapped around the existing app.
+   Nothing above this line was changed.
+   ============================================================ */
+
+.ai-window {
+    position: fixed;
+    top: 5vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1400px, 94vw);
+    height: min(900px, 90vh);
+    min-width: 360px;
+    min-height: 320px;
+    max-width: 98vw;
+    max-height: 96vh;
+    display: flex;
+    flex-direction: column;
+    background: #0b0d12;
+    border: 1px solid #282a31;
+    border-radius: 18px;
+    box-shadow: 0 40px 120px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    z-index: 500;
+}
+
+.ai-window-titlebar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px 10px 16px;
+    background: #12141a;
+    border-bottom: 1px solid #23252d;
+    cursor: move;
+    user-select: none;
+}
+
+.ai-window-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-weight: 800;
+    color: #f2f0f5;
+    font-size: 0.92rem;
+    letter-spacing: -0.01em;
+}
+
+.ai-window-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff8a5c, #ff6c3b);
+    display: inline-block;
+}
+
+.ai-window-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.ai-window-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #cfd3dd;
+    font-size: 0.85rem;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+}
+
+.ai-window-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.ai-window-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    position: relative;
+}
+
+.ai-window-body .app-shell {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+    background: #ffffff;
+}
+
+.ai-resize-handle {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.3) 50%);
+    border-bottom-right-radius: 16px;
+    z-index: 5;
+}
+
+.ai-window[data-state="minimized"] {
+    display: none;
+}
+
+.ai-restore-launcher {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 13px 20px;
+    border: 0;
+    border-radius: 999px;
+    background: #12141a;
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+}
+
+.ai-restore-launcher:hover {
+    background: #1a1d26;
+}
+
+.ai-window[data-state="maximized"] {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    height: auto;
+    transform: none;
+}
+
+.ai-window.is-dragging,
+.ai-window.is-resizing {
+    user-select: none;
+}
+
+.tool-launch-btn {
+    padding: 0 12px;
+    min-width: 48px;
+    font-size: 1.05rem;
+}
+
+/* ============================================================
+   TOOL MODALS — Web Search / Record & Playback / Camera
+   ============================================================ */
+
+.tool-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 7, 12, 0.6);
+    backdrop-filter: blur(3px);
+    padding: 20px;
+}
+
+.tool-modal-backdrop[hidden] {
+    display: none;
+}
+
+.tool-modal {
+    width: min(620px, 100%);
+    max-height: 88vh;
+    overflow: auto;
+    background: #12141a;
+    color: #f2f0f5;
+    border: 1px solid #262a35;
+    border-radius: 20px;
+    padding: 22px;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5);
+}
+
+.tool-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.tool-modal-head h2 {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.tool-modal-close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e7e9f0;
+    font-size: 1.1rem;
+}
+
+.tool-modal-close:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.tool-modal-help {
+    margin: 6px 0 14px;
+    color: #aab0c0;
+    font-size: 0.86rem;
+}
+
+.tool-search-bar {
+    display: flex;
+    gap: 10px;
+    margin-top: 6px;
+}
+
+.tool-search-bar input {
+    flex: 1;
+    min-width: 0;
+    min-height: 46px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    padding: 0 14px;
+}
+
+.tool-search-bar button {
+    min-height: 46px;
+    border: 0;
+    border-radius: 12px;
+    padding: 0 18px;
+    background: linear-gradient(135deg, #806cff, #5a8bff);
+    color: #fff;
+    font-weight: 750;
+}
+
+.search-results-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.search-result-card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.search-result-card a {
+    color: #8ab4ff;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.search-result-card a:hover {
+    text-decoration: underline;
+}
+
+.search-result-card .result-domain {
+    display: block;
+    color: #8f96a8;
+    font-size: 0.76rem;
+    margin-bottom: 3px;
+}
+
+.search-summary-card {
+    border: 1px solid rgba(128, 108, 255, 0.35);
+    background: rgba(128, 108, 255, 0.1);
+    border-radius: 14px;
+    padding: 14px;
+    white-space: pre-wrap;
+    color: #e6e4f5;
+}
+
+.record-controls,
+.camera-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.record-timer {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: #f2f0f5;
+}
+
+.record-playback-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.record-playback-wrap audio {
+    max-width: 100%;
+}
+
+.record-download {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 14px;
+}
+
+.camera-screen {
+    margin-top: 10px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 16 / 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.camera-screen video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.camera-gallery figure {
+    margin: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.camera-gallery img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+}
+
+.camera-gallery figcaption {
+    display: flex;
+}
+
+.camera-gallery figcaption button {
+    flex: 1;
+    border: 0;
+    background: rgba(255, 255, 255, 0.06);
+    color: #e7e9f0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 5px 0;
+}
+
+.camera-gallery figcaption button:hover {
+    background: rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 640px) {
+    .ai-window {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        transform: none;
+        width: 100vw;
+        height: 100vh;
+        min-width: 0;
+        border-radius: 0;
+    }
+
+    .ai-resize-handle {
+        display: none;
+    }
+
+    .tool-modal {
+        border-radius: 16px;
+    }
+}

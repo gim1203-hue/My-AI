@@ -656,7 +656,12 @@ taskForm.addEventListener("submit", async (event) => {
 loadWorkspace();
 
 function selectedUploads() {
-    return [...(documentInput.files ?? []), ...(folderInput.files ?? []), ...connectedFolderFiles];
+    return [
+        ...(documentInput.files ?? []),
+        ...(folderInput.files ?? []),
+        ...connectedFolderFiles,
+        ...cameraCapturedAttachedFiles
+    ];
 }
 
 const supportedUploadExtensions = [
@@ -1121,3 +1126,437 @@ documentForm.addEventListener("submit", async (event) => {
         analyzeDocumentButton.disabled = false;
     }
 });
+
+/* ============================================================
+   ADDED FEATURES — everything below is new. Nothing above this
+   line was changed except selectedUploads(), which now also
+   includes photos captured with the camera tool and attached
+   by the user.
+   ============================================================ */
+
+let cameraCapturedAttachedFiles = [];
+
+/* ---------------- Floating window: drag / resize / minimize / maximize ---------------- */
+(function setupWindowChrome() {
+    const win = document.getElementById("aiWindow");
+    const titlebar = document.getElementById("aiWindowTitlebar");
+    const minimizeBtn = document.getElementById("aiMinimizeBtn");
+    const maximizeBtn = document.getElementById("aiMaximizeBtn");
+    const restoreLauncher = document.getElementById("aiRestoreLauncher");
+    const resizeHandle = document.getElementById("aiResizeHandle");
+    if (!win || !titlebar || !minimizeBtn || !maximizeBtn || !restoreLauncher || !resizeHandle) return;
+
+    let dragOffset = null;
+    let previousState = null;
+
+    function clearInlinePosition() {
+        win.style.left = "";
+        win.style.top = "";
+        win.style.right = "";
+        win.style.bottom = "";
+        win.style.transform = "";
+    }
+
+    titlebar.addEventListener("pointerdown", (event) => {
+        if (event.target.closest(".ai-window-btn")) return;
+        if (win.dataset.state === "maximized") return;
+
+        const rect = win.getBoundingClientRect();
+        win.style.left = `${rect.left}px`;
+        win.style.top = `${rect.top}px`;
+        win.style.right = "auto";
+        win.style.bottom = "auto";
+        win.style.transform = "none";
+
+        dragOffset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        win.classList.add("is-dragging");
+        titlebar.setPointerCapture(event.pointerId);
+    });
+
+    titlebar.addEventListener("pointermove", (event) => {
+        if (!dragOffset) return;
+        const margin = 16;
+        const rect = win.getBoundingClientRect();
+        const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+        const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+        const left = Math.min(Math.max(event.clientX - dragOffset.x, margin), maxLeft);
+        const top = Math.min(Math.max(event.clientY - dragOffset.y, margin), maxTop);
+        win.style.left = `${left}px`;
+        win.style.top = `${top}px`;
+    });
+
+    function endDrag(event) {
+        if (!dragOffset) return;
+        dragOffset = null;
+        win.classList.remove("is-dragging");
+        try {
+            titlebar.releasePointerCapture(event.pointerId);
+        } catch {
+            // pointer capture may already be released
+        }
+    }
+
+    titlebar.addEventListener("pointerup", endDrag);
+    titlebar.addEventListener("pointercancel", endDrag);
+
+    let resizeStart = null;
+
+    resizeHandle.addEventListener("pointerdown", (event) => {
+        if (win.dataset.state === "maximized") return;
+        const rect = win.getBoundingClientRect();
+        win.style.left = `${rect.left}px`;
+        win.style.top = `${rect.top}px`;
+        win.style.right = "auto";
+        win.style.bottom = "auto";
+        win.style.transform = "none";
+        resizeStart = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
+        win.classList.add("is-resizing");
+        resizeHandle.setPointerCapture(event.pointerId);
+        event.preventDefault();
+    });
+
+    resizeHandle.addEventListener("pointermove", (event) => {
+        if (!resizeStart) return;
+        const margin = 16;
+        const currentLeft = parseFloat(win.style.left) || 0;
+        const currentTop = parseFloat(win.style.top) || 0;
+        const maxWidth = Math.max(360, window.innerWidth - currentLeft - margin);
+        const maxHeight = Math.max(320, window.innerHeight - currentTop - margin);
+        const nextWidth = Math.max(360, resizeStart.width + (event.clientX - resizeStart.x));
+        const nextHeight = Math.max(320, resizeStart.height + (event.clientY - resizeStart.y));
+        win.style.width = `${Math.min(nextWidth, maxWidth)}px`;
+        win.style.height = `${Math.min(nextHeight, maxHeight)}px`;
+    });
+
+    function endResize(event) {
+        if (!resizeStart) return;
+        resizeStart = null;
+        win.classList.remove("is-resizing");
+        try {
+            resizeHandle.releasePointerCapture(event.pointerId);
+        } catch {
+            // pointer capture may already be released
+        }
+    }
+
+    resizeHandle.addEventListener("pointerup", endResize);
+    resizeHandle.addEventListener("pointercancel", endResize);
+
+    minimizeBtn.addEventListener("click", () => {
+        win.dataset.state = "minimized";
+        restoreLauncher.hidden = false;
+    });
+
+    restoreLauncher.addEventListener("click", () => {
+        win.dataset.state = previousState || "normal";
+        restoreLauncher.hidden = true;
+    });
+
+    maximizeBtn.addEventListener("click", () => {
+        if (win.dataset.state === "maximized") {
+            win.dataset.state = "normal";
+            maximizeBtn.title = "Maximize";
+            maximizeBtn.setAttribute("aria-label", "Maximize");
+        } else {
+            previousState = "normal";
+            clearInlinePosition();
+            win.style.width = "";
+            win.style.height = "";
+            win.dataset.state = "maximized";
+            maximizeBtn.title = "Restore";
+            maximizeBtn.setAttribute("aria-label", "Restore");
+        }
+    });
+})();
+
+/* ---------------- Tool modal open/close helper ---------------- */
+function wireToolModal(backdropId, openButtonIds, closeButtonId, onOpen) {
+    const backdrop = document.getElementById(backdropId);
+    const closeButton = document.getElementById(closeButtonId);
+    if (!backdrop || !closeButton) return;
+
+    function open() {
+        backdrop.hidden = false;
+        if (typeof onOpen === "function") onOpen();
+    }
+
+    function close() {
+        backdrop.hidden = true;
+    }
+
+    openButtonIds.forEach((id) => {
+        const button = document.getElementById(id);
+        if (button) button.addEventListener("click", open);
+    });
+
+    closeButton.addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) close();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !backdrop.hidden) close();
+    });
+}
+
+/* ---------------- Web search tool (Google-style results) ---------------- */
+(function setupSearchTool() {
+    const form = document.getElementById("searchToolForm");
+    const input = document.getElementById("searchToolInput");
+    const status = document.getElementById("searchToolStatus");
+    const results = document.getElementById("searchToolResults");
+    if (!form || !input || !status || !results) return;
+
+    wireToolModal("searchModalBackdrop", ["openSearchBtn"], "searchModalClose", () => {
+        input.focus();
+    });
+
+    function safeUrl(value) {
+        try {
+            const url = new URL(value);
+            return ["http:", "https:"].includes(url.protocol) ? url : null;
+        } catch {
+            return null;
+        }
+    }
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const query = input.value.trim();
+        if (!query) return;
+
+        status.textContent = `Searching for "${query}"...`;
+        results.textContent = "";
+
+        try {
+            const response = await fetch("/web-search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Search failed.");
+
+            if (data.reply) {
+                const summary = document.createElement("div");
+                summary.className = "search-summary-card";
+                summary.textContent = data.reply;
+                results.appendChild(summary);
+            }
+
+            const citations = (data.citations || [])
+                .map((citation) => ({ ...citation, safe: safeUrl(citation.url) }))
+                .filter((citation) => citation.safe);
+
+            citations.forEach((citation) => {
+                const card = document.createElement("div");
+                card.className = "search-result-card";
+
+                const domain = document.createElement("span");
+                domain.className = "result-domain";
+                domain.textContent = citation.safe.hostname;
+
+                const link = document.createElement("a");
+                link.href = citation.safe.href;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = citation.title || citation.safe.hostname;
+
+                card.append(domain, link);
+                results.appendChild(card);
+            });
+
+            status.textContent = citations.length
+                ? `${citations.length} source${citations.length === 1 ? "" : "s"} for "${query}"`
+                : `Results for "${query}"`;
+        } catch (error) {
+            status.textContent = error?.message || "Search is temporarily unavailable.";
+        }
+    });
+})();
+
+/* ---------------- Record & playback (up to 24 hours) ---------------- */
+(function setupRecordTool() {
+    const startButton = document.getElementById("startRecordButton");
+    const stopButton = document.getElementById("stopRecordButton");
+    const timerLabel = document.getElementById("recordTimer");
+    const status = document.getElementById("recordStatus");
+    const playbackWrap = document.getElementById("recordPlaybackWrap");
+    const playbackAudio = document.getElementById("recordPlayback");
+    const downloadLink = document.getElementById("recordDownloadLink");
+    if (!startButton || !stopButton || !timerLabel || !status) return;
+
+    const MAX_RECORD_MS = 24 * 60 * 60 * 1000;
+    let mediaRecorder = null;
+    let recordingStream = null;
+    let recordedChunks = [];
+    let timerInterval = null;
+    let autoStopTimeout = null;
+    let startedAt = 0;
+
+    wireToolModal("recordModalBackdrop", ["openRecordBtn"], "recordModalClose");
+
+    function formatElapsed(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+        const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        return `${hours}:${minutes}:${seconds}`;
+    }
+
+    function tickTimer() {
+        timerLabel.textContent = formatElapsed(Date.now() - startedAt);
+    }
+
+    async function startRecording() {
+        try {
+            recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (error) {
+            status.textContent =
+                error?.name === "NotAllowedError"
+                    ? "Microphone permission was denied."
+                    : "The microphone could not be started.";
+            return;
+        }
+
+        recordedChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+        mediaRecorder = mimeType ? new MediaRecorder(recordingStream, { mimeType }) : new MediaRecorder(recordingStream);
+
+        mediaRecorder.addEventListener("dataavailable", (event) => {
+            if (event.data && event.data.size > 0) recordedChunks.push(event.data);
+        });
+
+        mediaRecorder.addEventListener("stop", () => {
+            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+            const url = URL.createObjectURL(blob);
+            if (playbackAudio) playbackAudio.src = url;
+            if (downloadLink) downloadLink.href = url;
+            if (playbackWrap) playbackWrap.hidden = false;
+            status.textContent = `Recording ready — ${formatElapsed(Date.now() - startedAt)} long.`;
+
+            if (recordingStream) {
+                recordingStream.getTracks().forEach((track) => track.stop());
+                recordingStream = null;
+            }
+        });
+
+        mediaRecorder.start(1000);
+        startedAt = Date.now();
+        timerLabel.textContent = "00:00:00";
+        status.textContent = "Recording...";
+        startButton.disabled = true;
+        stopButton.disabled = false;
+
+        timerInterval = setInterval(tickTimer, 1000);
+        autoStopTimeout = setTimeout(() => stopRecording(), MAX_RECORD_MS);
+    }
+
+    function stopRecording() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        if (autoStopTimeout) {
+            clearTimeout(autoStopTimeout);
+            autoStopTimeout = null;
+        }
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+        }
+        startButton.disabled = false;
+        stopButton.disabled = true;
+    }
+
+    startButton.addEventListener("click", startRecording);
+    stopButton.addEventListener("click", () => stopRecording());
+})();
+
+/* ---------------- Camera capture ---------------- */
+(function setupCameraTool() {
+    const openStreamButton = document.getElementById("openCameraStreamButton");
+    const closeStreamButton = document.getElementById("closeCameraStreamButton");
+    const captureButton = document.getElementById("capturePhotoButton");
+    const video = document.getElementById("cameraPreview");
+    const canvas = document.getElementById("cameraCanvas");
+    const status = document.getElementById("cameraStatus");
+    const gallery = document.getElementById("cameraGallery");
+    if (!openStreamButton || !closeStreamButton || !captureButton || !video || !canvas || !status || !gallery) return;
+
+    let cameraStream = null;
+    let shotCount = 0;
+
+    wireToolModal("cameraModalBackdrop", ["openCameraBtn"], "cameraModalClose", () => {});
+
+    async function openCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment" },
+                audio: false
+            });
+        } catch {
+            status.textContent = "The camera could not be started. Check permissions and try again.";
+            return;
+        }
+
+        video.srcObject = cameraStream;
+        status.textContent = "Camera is on.";
+        openStreamButton.disabled = true;
+        closeStreamButton.disabled = false;
+        captureButton.disabled = false;
+    }
+
+    function closeCamera() {
+        if (cameraStream) {
+            cameraStream.getTracks().forEach((track) => track.stop());
+            cameraStream = null;
+        }
+        video.srcObject = null;
+        status.textContent = "Camera is off.";
+        openStreamButton.disabled = false;
+        closeStreamButton.disabled = true;
+        captureButton.disabled = true;
+    }
+
+    function capturePhoto() {
+        if (!cameraStream) return;
+        const width = video.videoWidth || 640;
+        const height = video.videoHeight || 480;
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.drawImage(video, 0, 0, width, height);
+
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            shotCount += 1;
+            const fileName = `camera-photo-${shotCount}.jpg`;
+            const file = new File([blob], fileName, { type: "image/jpeg" });
+            const previewUrl = URL.createObjectURL(blob);
+
+            const figure = document.createElement("figure");
+            const img = document.createElement("img");
+            img.src = previewUrl;
+            img.alt = fileName;
+
+            const figcaption = document.createElement("figcaption");
+            const attachButton = document.createElement("button");
+            attachButton.type = "button";
+            attachButton.textContent = "Attach";
+            attachButton.addEventListener("click", () => {
+                cameraCapturedAttachedFiles.push(file);
+                attachButton.textContent = "Attached";
+                attachButton.disabled = true;
+                if (typeof updateSelectedFileSummary === "function") updateSelectedFileSummary();
+                status.textContent = `${fileName} attached — it will be sent with your next message.`;
+            });
+
+            figcaption.appendChild(attachButton);
+            figure.append(img, figcaption);
+            gallery.prepend(figure);
+        }, "image/jpeg", 0.92);
+    }
+
+    openStreamButton.addEventListener("click", openCamera);
+    closeStreamButton.addEventListener("click", closeCamera);
+    captureButton.addEventListener("click", capturePhoto);
+})();
