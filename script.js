@@ -1,5 +1,5 @@
 
-const API_BASE_URL = "https://my-ai-2-8ttc.onrender.com";
+const API_BASE_URL = "";
 const originalFetch = window.fetch.bind(window);
 
 window.fetch = (input, options) => {

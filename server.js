@@ -5,9 +5,18 @@ import { fileURLToPath } from "node:url";
 
 dotenv.config();
 
-const app = express();
+
+const allowedOrigins = [
+    "https://aihelpall.com",
+    "https://www.aihelpall.com",
+    "https://gim1203-hue.github.io"
+];
+
 app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "https://gim1203-hue.github.io");
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
@@ -17,6 +26,8 @@ app.use((req, res, next) => {
 
     next();
 });
+
+
 
 app.use(express.json({ limit: "2mb" }));
 
