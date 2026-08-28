@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 dotenv.config();
 
+const app = express();
 
 const allowedOrigins = [
     "https://aihelpall.com",
@@ -26,7 +27,6 @@ app.use((req, res, next) => {
 
     next();
 });
-
 
 
 app.use(express.json({ limit: "2mb" }));
