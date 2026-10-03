@@ -1,6 +1,7 @@
 const $ = id => document.getElementById(id);
 let engine, busy = false, recognition, listening = false, stopped = false;
 let pendingSubmission = false;
+let loading = false;
 let history = [];
 let attachedFiles = [];
 const CHAT_STORAGE_KEY = 'my-ai-saved-chats-v1';
@@ -16,13 +17,13 @@ const system = `You are My AI, a helpful assistant and patient programming instr
 When the user wants to build a React project, act as a senior React developer and beginner-friendly mentor. Use JavaScript and Vite unless asked otherwise. Follow this sequence and do not skip ahead: (1) first give 10-15 project ideas across varied categories, each with name, description, purpose, features, React concepts, difficulty, and portfolio value; ask which project they choose, then stop without code. (2) After selection, provide a complete specification with must-have and optional features; ask whether they are ready for setup, then stop without code. (3) After confirmation, guide setup with exact commands. (4) Build components, pages, state, data, forms, search, API behavior, errors, responsive layout, tests, GitHub, deployment, and README in small confirmed steps. Before each file's complete code, state its exact path and purpose; explain concepts simply, where code goes, exact test commands, expected results, and common fixes. Never dump the whole project at once. Do not continue to the next major step until the user confirms. When the user reports an error, debug their current step instead of restarting. For ordinary questions, remain a general-purpose assistant.`;
 function status(text) { $('status').textContent = text; }
 function controls() {
-    $('send').disabled = !engine || busy;
+    $('send').disabled = busy && !loading;
     $('load').disabled = busy || !!engine;
     $('load').textContent = engine ? 'AI ready' : busy ? 'Loading AI…' : 'Load free AI';
     $('load').setAttribute('aria-busy', String(busy));
     $('model').disabled = busy || !!engine;
-    $('mic').disabled = !engine || busy || !recognition;
-    $('stop').disabled = !busy && !listening;
+    $('mic').disabled = busy || !recognition;
+    $('stop').disabled = (!busy || loading) && !listening;
     $('clear').disabled = busy;
     renderConversationList();
 }
@@ -278,6 +279,8 @@ function sources(box, refs) {
     refs.forEach((r,i)=>{const url = new URL(r.url); if(url.protocol !== 'https:') return; const a=document.createElement('a'); a.textContent=`[${i+1}] ${r.title}`;a.href=url.href;a.target='_blank';a.rel='noopener noreferrer';wrap.append(a);}); box.append(wrap);
 }
 async function loadAI() {
+    if (busy || engine) return;
+    loading = true;
     busy = true; controls(); $('progress').hidden = false;
     $('progress').value = 0;
     try {
@@ -296,7 +299,7 @@ async function loadAI() {
         $('progress').value = 0;
         status(`AI could not load: ${e.message} Check your connection and graphics settings, then retry.`);
     }
-    finally {busy=false; controls();}
+    finally {loading=false; busy=false; controls();}
     if (engine && pendingSubmission) {
         pendingSubmission = false;
         $('form').requestSubmit();
@@ -306,15 +309,16 @@ $('load').onclick = loadAI;
 $('googleSearchInput').addEventListener('input', () => {
     const query = $('googleSearchInput').value.trim();
     $('googleSearchButton').href = query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : 'https://www.google.com/';
-    $('googleSearchButton').setAttribute('aria-disabled', String(!query));
+    $('googleSearchButton').removeAttribute('aria-disabled');
 });
 $('googleSearchButton').addEventListener('click', event => {
-    if (!$('googleSearchInput').value.trim()) event.preventDefault();
+    const query = $('googleSearchInput').value.trim();
+    $('googleSearchButton').href = query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : 'https://www.google.com/';
 });
 $('googleSearchInput').addEventListener('keydown', event => {
     if (event.key === 'Enter') {
         event.preventDefault();
-        if ($('googleSearchInput').value.trim()) $('googleSearchButton').click();
+        $('googleSearchButton').click();
     }
 });
 $('question').addEventListener('keydown', event => {
@@ -343,6 +347,7 @@ $('form').onsubmit = async event => {
     if (!engine) {
         pendingSubmission = true;
         status('Your message and attached files are queued. They will send when the AI finishes loading.');
+        if (!busy) await loadAI();
         return;
     }
     if (busy) return;
@@ -379,7 +384,17 @@ $('form').onsubmit = async event => {
         if(!text) reply.p.textContent=prefix+(stopped?'Reply stopped.':'No reply was generated. Please try again.');
         if($('speak').checked && text && !stopped && window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
         status(stopped?'Stopped.':'Ready for your next question.');
-    } catch(e) {reply.p.textContent += `\nCould not answer: ${e.message}`;saveConversationMessage('assistant', reply.p.textContent);status('Try a shorter question, or reload if the device ran out of memory.');}
+    } catch(e) {
+        reply.p.textContent += `\nCould not answer: ${e.message}`;
+        saveConversationMessage('assistant', reply.p.textContent);
+        if (/disposed|device.*lost|out of memory/i.test(e.message)) {
+            const failedEngine = engine;
+            engine = null;
+            try { await failedEngine?.unload(); } catch {}
+            $('progress').hidden = true;
+            status('The AI model stopped working. Press Load free AI to reload it, then resend your message.');
+        } else status('Could not generate a reply. Try a shorter question.');
+    }
     finally {busy=false;controls();}
 };
 $('stop').onclick = () => {stopped=true;engine?.interruptGenerate();recognition?.abort();window.speechSynthesis?.cancel();status('Stopping…');};
