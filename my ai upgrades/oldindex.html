@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My AI</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <button type="button" id="aiRestoreLauncher" class="ai-restore-launcher" hidden aria-label="Open My AI">
+        <span class="ai-window-dot" aria-hidden="true"></span> My AI
+    </button>
+
+    <div id="aiWindow" class="ai-window" data-state="normal">
+        <div class="ai-window-titlebar" id="aiWindowTitlebar">
+            <div class="ai-window-title"><span class="ai-window-dot" aria-hidden="true"></span> My AI</div>
+            <div class="ai-window-controls">
+                <button type="button" id="aiMinimizeBtn" class="ai-window-btn" aria-label="Minimize" title="Minimize">&#9472;</button>
+                <button type="button" id="aiMaximizeBtn" class="ai-window-btn" aria-label="Maximize" title="Maximize">&#9723;</button>
+            </div>
+        </div>
+        <div class="ai-window-body" id="aiWindowBody">
+    <main class="app-shell">
+        <aside class="workspace-panel" aria-label="Chats and tasks">
+            <div class="brand-row" aria-label="My AI home">
+                <span class="brand-mark" aria-hidden="true">AI</span>
+                <span class="brand-name">My AI</span>
+            </div>
+            <section class="sidebar-section">
+                <div class="sidebar-heading">
+                    <p class="section-label">Chats</p>
+                    <button id="newChatButton" class="compact-button" type="button">New chat</button>
+                </div>
+                <div id="chatThreadList" class="thread-list" aria-live="polite"></div>
+            </section>
+
+            <section class="sidebar-section task-section">
+                <p class="section-label">Tasks</p>
+                <form id="taskForm" class="task-form">
+                    <label class="sr-only" for="taskInput">New task</label>
+                    <input id="taskInput" type="text" maxlength="160" placeholder="Add a new task...">
+                    <button type="submit">Add</button>
+                </form>
+                <div id="taskList" class="task-list" aria-live="polite"></div>
+            </section>
+        </aside>
+
+        <div class="content-column">
+            <header>
+                <p class="eyebrow">YOUR PERSONAL ASSISTANT</p>
+                <h1>My AI</h1>
+                <p class="intro">Talk naturally, keep chats organized, and manage your tasks.</p>
+            </header>
+
+        <div class="unified-workspace">
+        <section class="text-card one-screen-workspace" aria-labelledby="textHeading">
+            <p class="section-label" id="textHeading">Text chat</p>
+
+            <div id="chat" class="chat" aria-live="polite"></div>
+            <p id="textStatus" class="text-status" role="status" aria-live="polite"></p>
+
+            <form id="chatForm" class="message-form">
+                <label class="sr-only" for="userInput">Message</label>
+                <input type="text" id="userInput" placeholder="Type your message..." autocomplete="off">
+                <button id="composerMicButton" class="composer-mic" type="button" aria-label="Start voice chat">Mic</button>
+                <button id="openSearchBtn" class="composer-mic tool-launch-btn" type="button" aria-label="Open web search">&#128269;</button>
+                <button id="openRecordBtn" class="composer-mic tool-launch-btn" type="button" aria-label="Open record and playback">&#9210;</button>
+                <button id="openCameraBtn" class="composer-mic tool-launch-btn" type="button" aria-label="Open camera">&#128247;</button>
+                <button id="sendButton" type="submit">Send</button>
+            </form>
+
+            <div class="workspace-tools">
+                <section class="compact-tool voice-tool" aria-labelledby="voiceHeading">
+                    <p class="section-label" id="voiceHeading">Voice &amp; search</p>
+                    <div class="voice-controls">
+                        <button id="startVoiceButton" class="voice-button" type="button"><span aria-hidden="true">●</span> Start voice</button>
+                        <button id="stopVoiceButton" class="stop-button" type="button" disabled>End voice</button>
+                    </div>
+                    <div id="voiceStatus" class="voice-status" role="status" aria-live="polite" data-state="idle">
+                        <span class="status-dot" aria-hidden="true"></span>
+                        <span id="voiceStatusText">Voice is off</span>
+                    </div>
+                    <label class="search-option" for="webSearchToggle">
+                        <input type="checkbox" id="webSearchToggle">
+                        <span><strong>Search the web</strong><small>Use current sources for this message.</small></span>
+                    </label>
+                    <audio id="voiceOutput" autoplay></audio>
+                </section>
+
+                <section class="compact-tool upload-tool" aria-labelledby="documentHeading">
+                    <p class="section-label" id="documentHeading">Files &amp; folders</p>
+                    <form id="documentForm" class="document-form">
+                        <div class="upload-pickers">
+                            <label class="file-picker" for="folderInput">
+                                <strong>Choose folder</strong>
+                                <input id="folderInput" name="folder" type="file" webkitdirectory multiple>
+                            </label>
+                            <label class="file-picker" for="documentInput">
+                                <strong>Choose files</strong>
+                                <span id="selectedFileName">Documents, code, or images</span>
+                                <input id="documentInput" name="documents" type="file" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.html,.htm,.css,.js,.mjs,.ts,.tsx,.jsx,.json,.xml,.py,.java,.c,.cpp,.h,.sql,.yaml,.yml,.png,.jpg,.jpeg,.webp,.gif">
+                            </label>
+                        </div>
+                        <div id="selectedFilesPanel" class="selected-files-panel" hidden>
+                            <strong>Selected on this device</strong>
+                            <p id="selectedFolderName"></p>
+                            <ul id="selectedFilesList"></ul>
+                        </div>
+                        <p class="single-prompt-note">Select files, type your request above, and press Send.</p>
+                    </form>
+                    <p id="documentStatus" class="text-status" role="status" aria-live="polite"></p>
+                    <p id="editableFolderStatus" class="text-status" role="status" aria-live="polite">No editable folder connected.</p>
+                    <div id="editProposal" class="edit-proposal" hidden>
+                        <strong id="editProposalSummary"></strong>
+                        <div id="editProposalList"></div>
+                        <button id="applyChangesButton" type="button" disabled>Apply approved changes with backups</button>
+                    </div>
+                    <div id="documentResult" class="document-result" aria-live="polite" hidden></div>
+                    <p class="privacy-note document-privacy">Selected files stay off GitHub.</p>
+                </section>
+            </div>
+
+            <aside id="codeWorkbench" class="code-workbench" aria-labelledby="codeWorkbenchHeading">
+                <div class="code-workbench-heading">
+                    <div>
+                        <p class="section-label" id="codeWorkbenchHeading">Connected folder</p>
+                        <strong>File &amp; code viewer</strong>
+                    </div>
+                </div>
+                <div class="folder-connection-actions">
+                    <button id="connectFolderButton" class="edit-folder-button" type="button">Connect editable folder</button>
+                    <button id="proposeChangesButton" class="edit-folder-button" type="button" disabled>Propose AI changes</button>
+                </div>
+                <label class="sr-only" for="connectedFileSelect">Files in the connected folder</label>
+                <select id="connectedFileSelect" size="7" disabled>
+                    <option>Connect an editable folder to view its files</option>
+                </select>
+                <label class="sr-only" for="codeEditor">Selected file contents</label>
+                <textarea id="codeEditor" spellcheck="false" placeholder="Select a text or code file to view it here." disabled></textarea>
+                <p id="codeEditorStatus" class="text-status" role="status" aria-live="polite"></p>
+                <div class="code-editor-actions">
+                    <button id="copyCodeButton" type="button" disabled>Copy code</button>
+                    <button id="saveCodeButton" type="button" disabled>Save with backup</button>
+                </div>
+            </aside>
+        </section>
+        </div>
+        </div>
+    </main>
+        </div>
+        <div class="ai-resize-handle" id="aiResizeHandle" aria-hidden="true"></div>
+    </div>
+
+    <!-- ===================== WEB SEARCH ===================== -->
+    <div class="tool-modal-backdrop" id="searchModalBackdrop" hidden>
+        <div class="tool-modal" role="dialog" aria-labelledby="searchModalTitle">
+            <div class="tool-modal-head">
+                <h2 id="searchModalTitle">&#128269; Web Search</h2>
+                <button type="button" class="tool-modal-close" id="searchModalClose" aria-label="Close">&times;</button>
+            </div>
+            <form id="searchToolForm" class="tool-search-bar">
+                <label class="sr-only" for="searchToolInput">Search the web</label>
+                <input type="search" id="searchToolInput" placeholder="Search the web..." autocomplete="off">
+                <button type="submit" id="searchToolButton">Search</button>
+            </form>
+            <p id="searchToolStatus" class="text-status" role="status" aria-live="polite"></p>
+            <div id="searchToolResults" class="search-results-list"></div>
+        </div>
+    </div>
+
+    <!-- ===================== RECORD & PLAYBACK ===================== -->
+    <div class="tool-modal-backdrop" id="recordModalBackdrop" hidden>
+        <div class="tool-modal" role="dialog" aria-labelledby="recordModalTitle">
+            <div class="tool-modal-head">
+                <h2 id="recordModalTitle">&#9210; Record &amp; Playback</h2>
+                <button type="button" class="tool-modal-close" id="recordModalClose" aria-label="Close">&times;</button>
+            </div>
+            <p class="tool-modal-help">Record up to 24 hours from your microphone, then play it back or download it. Nothing is uploaded — it stays on this device.</p>
+            <div class="record-controls">
+                <button type="button" id="startRecordButton" class="voice-button"><span aria-hidden="true">&#9679;</span> Start recording</button>
+                <button type="button" id="stopRecordButton" class="stop-button" disabled>Stop</button>
+                <span id="recordTimer" class="record-timer">00:00:00</span>
+            </div>
+            <p id="recordStatus" class="text-status" role="status" aria-live="polite">Not recording.</p>
+            <div id="recordPlaybackWrap" class="record-playback-wrap" hidden>
+                <audio id="recordPlayback" controls></audio>
+                <a id="recordDownloadLink" class="edit-folder-button record-download" download="my-ai-recording.webm">Download recording</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== CAMERA ===================== -->
+    <div class="tool-modal-backdrop" id="cameraModalBackdrop" hidden>
+        <div class="tool-modal" role="dialog" aria-labelledby="cameraModalTitle">
+            <div class="tool-modal-head">
+                <h2 id="cameraModalTitle">&#128247; Camera</h2>
+                <button type="button" class="tool-modal-close" id="cameraModalClose" aria-label="Close">&times;</button>
+            </div>
+            <p id="cameraStatus" class="text-status" role="status" aria-live="polite">Camera is off.</p>
+            <div class="camera-screen" id="cameraScreen">
+                <video id="cameraPreview" autoplay playsinline muted></video>
+                <canvas id="cameraCanvas" hidden></canvas>
+            </div>
+            <div class="camera-controls">
+                <button type="button" id="openCameraStreamButton" class="voice-button"><span aria-hidden="true">&#9679;</span> Turn on camera</button>
+                <button type="button" id="capturePhotoButton" class="stop-button" disabled>Capture photo</button>
+                <button type="button" id="closeCameraStreamButton" class="stop-button" disabled>Turn off camera</button>
+            </div>
+            <div id="cameraGallery" class="camera-gallery" aria-live="polite"></div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
