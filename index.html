@@ -16,11 +16,9 @@
 			</a>
 			<button id="clear" class="new-chat-button" type="button"><span aria-hidden="true">+</span> New chat</button>
 
-			<section class="sidebar-shortcuts" aria-labelledby="shortcutsHeading">
-				<p class="sidebar-label" id="shortcutsHeading">Start with</p>
-				<button class="shortcut-button" type="button" data-prompt="Help me build a React project step by step.">React project mentor</button>
-				<button class="shortcut-button" type="button" data-prompt="Explain a difficult idea in simple language, with an example.">Explain a concept</button>
-				<button class="shortcut-button" type="button" data-prompt="Help me plan a practical project for my portfolio.">Plan a project</button>
+			<section class="chat-history-section" aria-labelledby="historyHeading">
+				<p class="sidebar-label" id="historyHeading">Chats</p>
+				<div id="conversationList" class="conversation-list" aria-live="polite"></div>
 			</section>
 
 			<div class="sidebar-spacer"></div>
@@ -66,12 +64,21 @@
 			<form id="form" class="composer">
 				<label class="sr-only" for="question">Your message</label>
 				<textarea id="question" rows="1" maxlength="4000" placeholder="Message My AI" required></textarea>
+				<div id="attachmentPanel" class="attachment-panel" hidden>
+					<div class="attachment-heading"><strong id="attachmentSummary">No files attached</strong><button id="clearAttachments" class="clear-attachments" type="button">Clear</button></div>
+					<ul id="attachmentList" class="attachment-list"></ul>
+					<p class="attachment-limit">Up to 40 text files and 9,000 characters are included per message to protect browser memory and model context.</p>
+				</div>
 				<div class="composer-toolbar">
 					<div class="composer-options">
 						<label><input id="research" type="checkbox"> <span>Wikipedia sources</span></label>
 						<label><input id="speak" type="checkbox"> <span>Read aloud</span></label>
 					</div>
 					<div class="composer-actions">
+						<label class="attach-button" for="fileInput" title="Attach files">＋ File</label>
+						<input id="fileInput" class="sr-only" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.css,.js,.mjs,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.php,.rb,.sql,.xml,.yaml,.yml,.toml,.ini,.sh,.bat,.ps1,.env.example,.gitignore,.log">
+						<label class="attach-button" for="folderInput" title="Attach a folder">＋ Folder</label>
+						<input id="folderInput" class="sr-only" type="file" webkitdirectory multiple>
 						<a id="web" class="tool-link" href="https://www.google.com/" target="_blank" rel="noopener noreferrer">Google search ↗</a>
 						<button id="mic" class="tool-button" type="button" disabled>Speak</button>
 						<button id="stop" class="tool-button" type="button" disabled>Stop</button>
@@ -79,6 +86,7 @@
 					</div>
 				</div>
 			</form>
+			<div id="generatedFiles" class="generated-files" aria-live="polite" hidden></div>
 			<footer class="main-footnote">AI responses may be inaccurate. The model runs in your browser after its initial download.</footer>
 		</main>
 	</div>

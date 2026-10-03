@@ -115,11 +115,6 @@ button:disabled {
 	line-height: 1;
 }
 
-.sidebar-shortcuts {
-	display: grid;
-	gap: 3px;
-}
-
 .sidebar-label {
 	margin: 5px 8px 4px;
 	color: var(--muted);
@@ -129,16 +124,86 @@ button:disabled {
 	text-transform: uppercase;
 }
 
-.shortcut-button {
-	min-height: 38px;
-	color: #34464b;
-	font-size: 13px;
-}
-
-.shortcut-button:hover,
 .new-chat-button:hover {
 	border-color: #cbd8d5;
 	background: #fff;
+}
+
+.chat-history-section {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.conversation-list {
+	display: grid;
+	align-content: start;
+	gap: 3px;
+	max-height: min(48vh, 420px);
+	overflow: auto;
+}
+
+.conversation-row {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	min-width: 0;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	padding: 2px;
+}
+
+.conversation-row:hover,
+.conversation-row:focus-within {
+	border-color: #dfe7e4;
+	background: #fff;
+}
+
+.conversation-button {
+	flex: 1;
+	min-width: 0;
+	min-height: 34px;
+	border: 0;
+	border-radius: 4px;
+	padding: 0 8px;
+	background: transparent;
+	color: #34464b;
+	font-size: 12px;
+	text-align: left;
+	text-overflow: ellipsis;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.conversation-button[aria-current="true"] {
+	background: #e7f0ed;
+	color: var(--green-dark);
+	font-weight: 750;
+}
+
+.delete-conversation-button {
+	flex: 0 0 28px;
+	width: 28px;
+	min-height: 28px;
+	border: 0;
+	border-radius: 4px;
+	padding: 0;
+	background: transparent;
+	color: #6a7b7e;
+	font-size: 18px;
+	line-height: 1;
+}
+
+.delete-conversation-button:hover {
+	background: #f8e9e5;
+	color: #9c3928;
+}
+
+.conversation-list-empty {
+	margin: 6px 8px;
+	color: #748286;
+	font-size: 11px;
+	line-height: 1.5;
 }
 
 .sidebar-spacer {
@@ -438,6 +503,79 @@ body.has-messages .empty-state {
 	color: #7a898b;
 }
 
+.attachment-panel {
+	margin: 4px 0 10px;
+	border-top: 1px solid var(--line);
+	padding-top: 10px;
+}
+
+.attachment-panel[hidden],
+.generated-files[hidden] {
+	display: none;
+}
+
+.attachment-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	color: #42565a;
+	font-size: 11px;
+}
+
+.clear-attachments,
+.remove-attachment {
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	font-size: 11px;
+}
+
+.attachment-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	max-height: 82px;
+	overflow: auto;
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.attachment-list li {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	max-width: 100%;
+	border: 1px solid #d7e3e0;
+	border-radius: 5px;
+	padding: 3px 5px 3px 8px;
+	background: #f6f9f7;
+	color: #45595d;
+	font-size: 10px;
+}
+
+.attachment-list li span {
+	max-width: 250px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.remove-attachment {
+	min-height: 20px;
+	margin: 0;
+	padding: 0 3px;
+	font-size: 15px;
+}
+
+.attachment-limit {
+	margin: 6px 0 0;
+	color: var(--muted);
+	font-size: 10px;
+	line-height: 1.4;
+}
+
 .composer-toolbar,
 .composer-options,
 .composer-actions {
@@ -494,6 +632,25 @@ body.has-messages .empty-state {
 	white-space: nowrap;
 }
 
+.attach-button {
+	display: inline-flex;
+	align-items: center;
+	min-height: 32px;
+	border: 1px solid #d5dfdd;
+	border-radius: 5px;
+	padding: 0 8px;
+	color: #43565a;
+	cursor: pointer;
+	font-size: 11px;
+	font-weight: 650;
+	white-space: nowrap;
+}
+
+.attach-button:hover {
+	border-color: #9dbdb4;
+	background: #f6faf8;
+}
+
 .send-button {
 	display: grid;
 	place-items: center;
@@ -518,6 +675,39 @@ body.has-messages .empty-state {
 	font-size: 10px;
 	line-height: 1.45;
 	text-align: center;
+}
+
+.generated-files {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	width: min(780px, calc(100% - 48px));
+	margin: 8px auto;
+	border: 1px solid #d5e5df;
+	border-radius: 6px;
+	padding: 9px 11px;
+	background: #f4faf6;
+	color: #36544a;
+	font-size: 11px;
+}
+
+.save-files-button {
+	min-height: 30px;
+	border: 0;
+	border-radius: 4px;
+	padding: 0 10px;
+	background: var(--green);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.generated-file-names {
+	flex-basis: 100%;
+	color: var(--muted);
+	line-height: 1.5;
+	overflow-wrap: anywhere;
 }
 
 .sidebar-backdrop {
@@ -619,6 +809,7 @@ input:focus-visible {
 	}
 
 	.composer,
+	.generated-files,
 	.main-footnote {
 		width: calc(100% - 24px);
 	}
@@ -645,6 +836,12 @@ input:focus-visible {
 
 	.tool-button {
 		padding: 0 7px;
+		font-size: 10px;
+	}
+
+	.attach-button {
+		min-height: 30px;
+		padding: 0 6px;
 		font-size: 10px;
 	}
 }

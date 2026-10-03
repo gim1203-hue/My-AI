@@ -14,6 +14,8 @@ Choose a model, press Load free AI, wait for the initial download, and send a qu
 
 Wikipedia research sends the question to the public Wikipedia API and inserts up to three excerpts with links into the AI prompt. It is not full search-engine retrieval. Search wider web opens Google separately. Network access is needed for the initial runtime/model download and Wikipedia. Visitors incur their own data usage; hosting and bandwidth limits may still apply.
 
+Attach text/code files or a folder to include project context. The browser accepts up to 40 files and 9,000 total characters; individual files are capped at 2 MB and selected text is trimmed to fit the local model context. Binary files are skipped. When the assistant returns `file:path` code blocks, use **Save to folder** and approve a destination directory to create the files and subfolders locally. This uses the browser File System Access API where supported; other browsers download generated files individually. Nothing is written without an explicit user action.
+
 WebGPU and sufficient graphics memory are required. Model downloads can be hundreds of MB or larger. Unsupported devices get an explanatory message and may use the wider-web link. All conversation state lives in the current tab; reloading clears it. Model files may be cached by WebLLM.
 
 ## Verification limits
