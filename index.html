@@ -42,6 +42,11 @@
 			<header class="topbar">
 				<button id="sidebarToggle" class="icon-button" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><span aria-hidden="true">☰</span></button>
 				<div class="topbar-title">My AI <span class="free-tag">Free</span></div>
+				<div class="google-search-row" role="search" aria-label="Google search">
+					<label class="sr-only" for="googleSearchInput">Search Google</label>
+					<input id="googleSearchInput" type="search" placeholder="Search Google..." autocomplete="off">
+					<a id="googleSearchButton" class="google-search-button" href="https://www.google.com/" target="_blank" rel="noopener noreferrer" aria-label="Search Google" aria-disabled="true">Search ↗</a>
+				</div>
 				<p id="status" role="status" aria-live="polite">Load AI to begin. The first model download can take several minutes.</p>
 			</header>
 
@@ -64,11 +69,6 @@
 			<form id="form" class="composer">
 				<label class="sr-only" for="question">Your message</label>
 				<textarea id="question" rows="1" maxlength="4000" placeholder="Message My AI" required></textarea>
-				<div class="google-search-row" role="search" aria-label="Google search">
-					<label class="sr-only" for="googleSearchInput">Search Google</label>
-					<input id="googleSearchInput" type="search" placeholder="Search Google..." autocomplete="off">
-					<a id="googleSearchButton" class="google-search-button" href="https://www.google.com/" target="_blank" rel="noopener noreferrer" aria-label="Search Google" aria-disabled="true">Search ↗</a>
-				</div>
 				<div id="attachmentPanel" class="attachment-panel" hidden>
 					<div class="attachment-heading"><strong id="attachmentSummary">No files attached</strong><button id="clearAttachments" class="clear-attachments" type="button">Clear</button></div>
 					<ul id="attachmentList" class="attachment-list"></ul>

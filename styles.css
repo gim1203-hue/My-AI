@@ -303,6 +303,14 @@ progress {
 	font-weight: 800;
 }
 
+.topbar .google-search-row {
+	flex: 1 1 300px;
+	width: min(420px, 100%);
+	max-width: 420px;
+	min-width: 220px;
+	margin: 0 auto 0 12px;
+}
+
 .free-tag {
 	border: 1px solid #d4e6df;
 	border-radius: 4px;
@@ -828,14 +836,26 @@ input:focus-visible {
 	}
 
 	.topbar {
+		flex-wrap: wrap;
 		min-height: 54px;
 		gap: 10px;
-		padding: 0 14px;
+		padding: 8px 14px;
 	}
 
 	#status {
+		order: 2;
+		flex: 1 1 120px;
 		max-width: 48%;
 		font-size: 10px;
+	}
+
+	.topbar .google-search-row {
+		order: 3;
+		flex: 1 0 100%;
+		width: 100%;
+		max-width: none;
+		min-width: 0;
+		margin: 0;
 	}
 
 	.conversation-area {
