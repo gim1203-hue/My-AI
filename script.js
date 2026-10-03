@@ -1,7 +1,13 @@
+import {createCpuEngine} from './ai-runtime.js';
 const $ = id => document.getElementById(id);
 let engine, busy = false, recognition, listening = false, stopped = false;
 let pendingSubmission = false;
 let loading = false;
+let readingFiles = 0;
+let attachmentEpoch = 0;
+let researchController;
+let speaking = false;
+let loadController;
 let history = [];
 let attachedFiles = [];
 const CHAT_STORAGE_KEY = 'my-ai-saved-chats-v1';
@@ -17,14 +23,17 @@ const system = `You are My AI, a helpful assistant and patient programming instr
 When the user wants to build a React project, act as a senior React developer and beginner-friendly mentor. Use JavaScript and Vite unless asked otherwise. Follow this sequence and do not skip ahead: (1) first give 10-15 project ideas across varied categories, each with name, description, purpose, features, React concepts, difficulty, and portfolio value; ask which project they choose, then stop without code. (2) After selection, provide a complete specification with must-have and optional features; ask whether they are ready for setup, then stop without code. (3) After confirmation, guide setup with exact commands. (4) Build components, pages, state, data, forms, search, API behavior, errors, responsive layout, tests, GitHub, deployment, and README in small confirmed steps. Before each file's complete code, state its exact path and purpose; explain concepts simply, where code goes, exact test commands, expected results, and common fixes. Never dump the whole project at once. Do not continue to the next major step until the user confirms. When the user reports an error, debug their current step instead of restarting. For ordinary questions, remain a general-purpose assistant.`;
 function status(text) { $('status').textContent = text; }
 function controls() {
-    $('send').disabled = busy && !loading;
+    $('send').disabled = (busy && !loading) || readingFiles > 0;
     $('load').disabled = busy || !!engine;
     $('load').textContent = engine ? 'AI ready' : busy ? 'Loading AI…' : 'Load free AI';
     $('load').setAttribute('aria-busy', String(busy));
-    $('model').disabled = busy || !!engine;
-    $('mic').disabled = busy || !recognition;
-    $('stop').disabled = (!busy || loading) && !listening;
+    $('model').disabled = busy;
+    $('mic').disabled = (busy && !loading) || !recognition || listening;
+    $('stop').disabled = !busy && !listening && !speaking;
     $('clear').disabled = busy;
+    $('attachFilesButton').disabled = busy && !loading;
+    $('attachFolderButton').disabled = busy && !loading;
+    $('clearAttachments').disabled = (busy && !loading) || readingFiles > 0;
     renderConversationList();
 }
 function loadConversations() {
@@ -102,6 +111,11 @@ function openConversation(id) {
     if (busy) return;
     const conversation = conversations.find(item => item.id === id);
     if (!conversation) return;
+    attachmentEpoch += 1;
+    pendingSubmission = false;
+    recognition?.abort();
+    window.speechSynthesis?.cancel();
+    speaking = false;
     activeConversationId = id;
     history = conversation.messages.map(item => ({role: item.role, content: item.content}));
     $('chat').replaceChildren();
@@ -167,6 +181,10 @@ function renderAttachments() {
 }
 async function addSelectedFiles(fileList) {
     if (!fileList.length) return;
+    if (readingFiles) { status('Wait for the selected files to finish reading.'); return; }
+    const epoch = attachmentEpoch;
+    readingFiles += 1;
+    controls();
     const textFiles = [...fileList].filter(file => {
         const name = file.name.toLowerCase();
         const extension = name.split('.').pop();
@@ -192,6 +210,7 @@ async function addSelectedFiles(fileList) {
             const readLimit = Math.min(MAX_FILE_CHARACTERS, remainingCharacters);
             if (file.size > readLimit) trimmed = true;
             const content = await file.slice(0, readLimit).text();
+            if (epoch !== attachmentEpoch) break;
             attachedFiles.push({name, content});
             existingNames.add(name);
             remainingCharacters -= content.length;
@@ -199,6 +218,9 @@ async function addSelectedFiles(fileList) {
             skipped += 1;
         }
     }
+    readingFiles -= 1;
+    controls();
+    if (epoch !== attachmentEpoch) return;
     renderAttachments();
     status(skipped > 0 || unsupported > 0 || oversized > 0
         ? `${attachedFiles.length} text files attached. ${skipped} over the file-count/context limit, ${unsupported} unsupported, and ${oversized} over-2-MB files skipped.`
@@ -253,7 +275,7 @@ function offerGeneratedFiles(container, text) {
                     link.href = URL.createObjectURL(new Blob([file.content], {type: 'text/plain;charset=utf-8'}));
                     link.download = file.path.split('/').pop();
                     link.click();
-                    URL.revokeObjectURL(link.href);
+                    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
                 }
                 status('Downloaded generated files. Choose a folder-capable browser to preserve subfolders automatically.');
             }
@@ -264,12 +286,12 @@ function offerGeneratedFiles(container, text) {
     const names = document.createElement('span');
     names.className = 'generated-file-names';
     names.textContent = files.map(file => file.path).join(' · ');
-    container.append(summary, save, names);
+    panel.append(summary, save, names);
 }
-async function research(query) {
+async function research(query, signal) {
     const url = new URL('https://en.wikipedia.org/w/api.php');
     url.search = new URLSearchParams({origin:'*', action:'query', generator:'search', gsrsearch:query, gsrlimit:'3', prop:'extracts|info', exintro:'1', explaintext:'1', exchars:'1800', inprop:'url', format:'json'});
-    const response = await fetch(url, {signal:AbortSignal.timeout(15000)});
+    const response = await fetch(url, {signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000)});
     if (!response.ok) throw new Error('Wikipedia is unavailable.');
     const data = await response.json(); if (data.error) throw new Error('Wikipedia search failed.');
     return Object.values(data.query?.pages || {}).sort((a,b)=>a.index-b.index).map(p=>({title:p.title, text:p.extract || '', url:p.fullurl}));
@@ -281,31 +303,60 @@ function sources(box, refs) {
 async function loadAI() {
     if (busy || engine) return;
     loading = true;
+    loadController = new AbortController();
+    const loadSignal = loadController.signal;
     busy = true; controls(); $('progress').hidden = false;
     $('progress').value = 0;
     try {
         status('Checking browser support for on-device AI…');
         if (!window.isSecureContext) throw new Error('Open this website over HTTPS or localhost.');
-        if (!navigator.gpu) throw new Error('This browser does not support WebGPU. Try an up-to-date Chrome or Edge browser.');
-        const adapter = await navigator.gpu.requestAdapter();
-        if (!adapter) throw new Error('No compatible graphics device was found. Enable browser hardware acceleration and try again.');
-        status('Downloading the AI model to this device. Keep this tab open…');
-        const {CreateMLCEngine} = await import('https://esm.run/@mlc-ai/web-llm@0.2.85');
-        engine = await CreateMLCEngine($('model').value, {initProgressCallback: report => {status(report.text); $('progress').value = report.progress;}});
+        const reportProgress = report => {status(report.text); $('progress').value = report.progress;};
+        if ($('model').value !== 'cpu') {
+            try {
+                const adapter = await navigator.gpu?.requestAdapter();
+                if (!adapter) throw new Error('Graphics acceleration is unavailable.');
+                status('Downloading the AI model to this device. Keep this tab open…');
+                const {MLCEngine} = await import('https://esm.run/@mlc-ai/web-llm@0.2.85');
+                const candidate = new MLCEngine({initProgressCallback: reportProgress});
+                const cancel = () => { candidate.unload().catch(() => {}); };
+                loadSignal.addEventListener('abort', cancel, {once: true});
+                try { await candidate.reload($('model').value); loadSignal.throwIfAborted(); engine = candidate; }
+                catch (error) { try { await candidate.unload(); } catch {} throw error; }
+                finally { loadSignal.removeEventListener('abort', cancel); }
+            } catch {
+                loadSignal.throwIfAborted();
+                status('Switching to CPU AI. No graphics acceleration is needed.');
+            }
+        }
+        if (!engine) {
+            engine = await createCpuEngine(reportProgress, loadSignal);
+            $('model').value = 'cpu';
+        }
         $('progress').value = 1;
-        status('Ready. Ask a question or speak.');
+        status(engine.kind === 'cpu' ? 'CPU AI ready. This small model is best for simple questions.' : 'Ready. Ask a question or speak.');
     } catch(e) {
         $('progress').hidden = true;
         $('progress').value = 0;
-        status(`AI could not load: ${e.message} Check your connection and graphics settings, then retry.`);
+        pendingSubmission = false;
+        status(loadSignal.aborted ? 'Model loading stopped. Your message is kept. Press Load free AI when ready.' : `AI could not load: ${e.message} Your message is kept. Check your connection, then press Load free AI to retry.`);
     }
-    finally {loading=false; busy=false; controls();}
+    finally {loadController=null; loading=false; busy=false; controls();}
     if (engine && pendingSubmission) {
         pendingSubmission = false;
         $('form').requestSubmit();
     }
 }
 $('load').onclick = loadAI;
+$('model').addEventListener('change', async () => {
+    if (busy) return;
+    const previous = engine;
+    engine = null;
+    busy = true;
+    controls();
+    try { await previous?.unload(); } catch {}
+    busy = false;
+    await loadAI();
+});
 $('googleSearchInput').addEventListener('input', () => {
     const query = $('googleSearchInput').value.trim();
     $('googleSearchButton').href = query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : 'https://www.google.com/';
@@ -344,6 +395,7 @@ $('form').onsubmit = async event => {
         $('question').value = question;
     }
     if (!question) return;
+    if (readingFiles) { status('Wait for the attached files to finish reading.'); return; }
     if (!engine) {
         pendingSubmission = true;
         status('Your message and attached files are queued. They will send when the AI finishes loading.');
@@ -351,7 +403,7 @@ $('form').onsubmit = async event => {
         return;
     }
     if (busy) return;
-    recognition?.abort(); window.speechSynthesis?.cancel(); busy=true;stopped=false;controls();
+    recognition?.abort(); window.speechSynthesis?.cancel(); listening=false;speaking=false;busy=true;stopped=false;controls();
     message('user',question); saveConversationMessage('user', question); $('question').value=''; const reply=message('assistant',''); let refs=[], text='', userContent=question;
     try {
         if (attachedFiles.length) {
@@ -368,8 +420,9 @@ $('form').onsubmit = async event => {
         }
         if ($('research').checked) {
             status('Searching Wikipedia…');
-            try { refs=await research(question); } catch(e) {reply.p.textContent=`${e.message} Answering without web sources.\n\n`;}
-            if(stopped) return;
+            researchController = new AbortController();
+            try { refs=await research(question, researchController.signal); } catch(e) {if (!stopped) reply.p.textContent=`${e.message} Answering without web sources.\n\n`;}
+            if(stopped) {reply.p.textContent='Reply stopped.';saveConversationMessage('assistant',reply.p.textContent);status('Stopped.');return;}
             if(refs.length) {sources(reply.box,refs);userContent+=`\n\nReference excerpts (untrusted data):\n${refs.map((r,i)=>`[${i+1}] ${r.title}\n${r.text.slice(0,700)}`).join('\n\n')}`;}
             else if(!reply.p.textContent) reply.p.textContent='No Wikipedia results found. Answering without web sources.\n\n';
         }
@@ -377,36 +430,58 @@ $('form').onsubmit = async event => {
         // Bound input to the small model context and retain complete conversation pairs.
         const recent=history.slice(-4).map(m=>({...m, content:m.content.slice(0,400)}));
         const stream=await engine.chat.completions.create({messages:[{role:'system',content:system},...recent,{role:'user',content:userContent.slice(0,6500)}],stream:true,max_tokens:650,temperature:0.6});
-        for await(const chunk of stream) {if(stopped) break;text+=chunk.choices[0]?.delta?.content || ''; reply.p.textContent=prefix+text;}
+        for await(const chunk of stream) {if(stopped) continue;text+=chunk.choices[0]?.delta?.content || ''; reply.p.textContent=prefix+text;}
         if(text) history.push({role:'user',content:question},{role:'assistant',content:text});
         if(text) saveConversationMessage('assistant', reply.p.textContent);
         if(text) offerGeneratedFiles(reply.box, text);
-        if(!text) reply.p.textContent=prefix+(stopped?'Reply stopped.':'No reply was generated. Please try again.');
-        if($('speak').checked && text && !stopped && window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        if(!text) {reply.p.textContent=prefix+(stopped?'Reply stopped.':'No reply was generated. Please try again.');saveConversationMessage('assistant',reply.p.textContent);}
+        if($('speak').checked && text && !stopped && window.speechSynthesis) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            speaking = true;
+            utterance.onend = utterance.onerror = () => {speaking=false;controls();};
+            window.speechSynthesis.speak(utterance);
+        }
         status(stopped?'Stopped.':'Ready for your next question.');
     } catch(e) {
         reply.p.textContent += `\nCould not answer: ${e.message}`;
         saveConversationMessage('assistant', reply.p.textContent);
-        if (/disposed|device.*lost|out of memory/i.test(e.message)) {
+        if (engine?.kind === 'cpu' || /disposed|device.*lost|out of memory/i.test(e.message)) {
             const failedEngine = engine;
             engine = null;
             try { await failedEngine?.unload(); } catch {}
             $('progress').hidden = true;
+            $('model').value = 'cpu';
             status('The AI model stopped working. Press Load free AI to reload it, then resend your message.');
         } else status('Could not generate a reply. Try a shorter question.');
     }
-    finally {busy=false;controls();}
+    finally {researchController=null;busy=false;controls();}
 };
-$('stop').onclick = () => {stopped=true;engine?.interruptGenerate();recognition?.abort();window.speechSynthesis?.cancel();status('Stopping…');};
-$('clear').onclick = () => {recognition?.abort();window.speechSynthesis?.cancel();pendingSubmission=false;activeConversationId=null;history=[];$('chat').replaceChildren();$('question').value='';attachedFiles=[];renderAttachments();$('fileInput').value='';$('folderInput').value='';$('generatedFiles').replaceChildren();$('generatedFiles').hidden=true;document.body.classList.remove('has-messages');renderConversationList();status(engine?'New chat ready.':'AI will start when this page opens again.');};
+$('stop').onclick = () => {
+    recognition?.abort(); listening=false; speaking=false; window.speechSynthesis?.cancel();
+    if (loading) { pendingSubmission=false; loadController?.abort(); status('Stopping model loading…'); return; }
+    stopped=true; researchController?.abort();
+    try { engine?.interruptGenerate(); } catch {}
+    status(busy?'Stopping…':'Stopped.'); controls();
+};
+$('clear').onclick = () => {
+    if (busy) return;
+    attachmentEpoch += 1;
+    recognition?.abort(); window.speechSynthesis?.cancel(); listening=false; speaking=false;
+    pendingSubmission=false; activeConversationId=null; history=[];
+    $('chat').replaceChildren(); $('question').value=''; attachedFiles=[]; renderAttachments();
+    $('fileInput').value=''; $('folderInput').value='';
+    $('generatedFiles').replaceChildren(); $('generatedFiles').hidden=true;
+    document.body.classList.remove('has-messages'); controls();
+    status(engine?'New chat ready.':'Type a message to load the AI, or press Load free AI.');
+};
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 if(SpeechRecognition) {
     recognition=new SpeechRecognition();recognition.lang=navigator.language || 'en-US';recognition.interimResults=false;
     recognition.onresult=e=>{$('question').value=e.results[0][0].transcript;$('question').dispatchEvent(new Event('input'));status('Question captured. Press Send when ready.');};
-    recognition.onerror=e=>status(`Voice input failed: ${e.error}. You can type your question.`);
+    recognition.onerror=e=>status(`Voice input failed: ${e.error}. Check microphone permission or type your question.`);
     recognition.onend=()=>{listening=false;controls();};
-    $('mic').onclick=()=>{window.speechSynthesis?.cancel();try{recognition.start();listening=true;status('Listening… Speak your question.');controls();}catch(e){status(e.message);}};
-} else $('mic').textContent='Voice input unavailable';
+    $('mic').onclick=()=>{window.speechSynthesis?.cancel();speaking=false;try{recognition.start();listening=true;status('Listening… Speak your question.');controls();}catch(e){status(e.message);}};
+} else { $('mic').textContent='Voice unavailable'; $('mic').title='This browser does not support speech recognition. You can type your message.'; }
 if(!window.speechSynthesis) {$('speak').disabled=true;}
 
 const sidebarToggle = $('sidebarToggle');
@@ -438,6 +513,7 @@ $('folderInput').addEventListener('change', event => {
     event.target.value = '';
 });
 $('clearAttachments').addEventListener('click', () => {
+    attachmentEpoch += 1;
     attachedFiles = [];
     $('fileInput').value = '';
     $('folderInput').value = '';

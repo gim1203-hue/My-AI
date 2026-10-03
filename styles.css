@@ -640,6 +640,7 @@ body.has-messages .empty-state {
 
 .composer-toolbar {
 	justify-content: space-between;
+	flex-wrap: wrap;
 	gap: 10px;
 	min-height: 36px;
 }
@@ -842,7 +843,7 @@ input:focus-visible {
 		padding: 8px 14px;
 	}
 
-	#status {
+#status {
 		order: 2;
 		flex: 1 1 120px;
 		max-width: 48%;

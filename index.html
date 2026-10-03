@@ -5,7 +5,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="theme-color" content="#f4f7f5">
 	<title>My AI | Free On-Device Assistant</title>
-	<link rel="stylesheet" href="/styles.css">
+	<meta name="description" content="A free, private assistant with on-device chat, file review, voice input, and web search. Runs on CPU or supported graphics devices.">
+	<link rel="canonical" href="https://aihelpall.com/">
+	<link rel="stylesheet" href="/styles.css?v=20261003-cpu">
 </head>
 <body>
 	<div class="app-shell">
@@ -26,6 +28,7 @@
 				<p class="sidebar-label" id="modelHeading">On-device model</p>
 				<label class="sr-only" for="model">Choose an AI model</label>
 				<select id="model">
+					<option value="cpu">Compatible · CPU, small</option>
 					<option value="SmolLM2-1.7B-Instruct-q4f32_1-MLC">Everyday · smaller</option>
 					<option value="Llama-3.2-3B-Instruct-q4f32_1-MLC">Stronger · larger</option>
 				</select>
@@ -94,6 +97,6 @@
 			<footer class="main-footnote">AI responses may be inaccurate. The model runs in your browser after its initial download.</footer>
 		</main>
 	</div>
-	<script type="module" src="/script.js"></script>
+	<script type="module" src="/script.js?v=20261003-cpu"></script>
 </body>
 </html>
