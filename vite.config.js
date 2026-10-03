@@ -6,6 +6,7 @@ import hostingConfig from "./.openai/hosting.json" with { type: "json" };
 const PLACEHOLDER_DATABASE_ID = "00000000-0000-4000-8000-000000000000";
 
 export default defineConfig({
+    publicDir: "my ai upgrades",
     plugins: [
         sites(),
         cloudflare({

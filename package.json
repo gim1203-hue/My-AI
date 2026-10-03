@@ -5,7 +5,7 @@
   "description": "",
   "main": "worker.js",
   "scripts": {
-    "test": "node --check server.js && node --check script.js && node --check worker.js",
+    "test": "node --check server.js && node --check script.js && node --check worker.js && node --check \"my ai upgrades/oldscript.js\"",
     "dev": "vite",
     "build": "vite build",
     "start": "node server.js"

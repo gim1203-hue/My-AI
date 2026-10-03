@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My AI</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="/oldstyles.css">
 </head>
 
 <body>
@@ -160,10 +160,11 @@
                 <h2 id="searchModalTitle">&#128269; Web Search</h2>
                 <button type="button" class="tool-modal-close" id="searchModalClose" aria-label="Close">&times;</button>
             </div>
-            <form id="searchToolForm" class="tool-search-bar">
+            <p class="tool-modal-help">Search Google to open live results in a new tab.</p>
+            <form id="searchToolForm" class="tool-search-bar" action="https://www.google.com/search" method="get" target="_blank">
                 <label class="sr-only" for="searchToolInput">Search the web</label>
-                <input type="search" id="searchToolInput" placeholder="Search the web..." autocomplete="off">
-                <button type="submit" id="searchToolButton">Search</button>
+                <input type="search" id="searchToolInput" name="q" placeholder="Search Google..." autocomplete="off" required>
+                <button type="submit" id="searchToolButton">Search Google</button>
             </form>
             <p id="searchToolStatus" class="text-status" role="status" aria-live="polite"></p>
             <div id="searchToolResults" class="search-results-list"></div>
@@ -212,6 +213,6 @@
         </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <script type="module" src="/oldscript.js"></script>
 </body>
 </html>

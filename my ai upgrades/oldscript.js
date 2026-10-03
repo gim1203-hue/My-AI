@@ -1310,79 +1310,14 @@ function wireToolModal(backdropId, openButtonIds, closeButtonId, onOpen) {
     });
 }
 
-/* ---------------- Web search tool (Google-style results) ---------------- */
+/* ---------------- Google search tool ---------------- */
 (function setupSearchTool() {
     const form = document.getElementById("searchToolForm");
     const input = document.getElementById("searchToolInput");
-    const status = document.getElementById("searchToolStatus");
-    const results = document.getElementById("searchToolResults");
-    if (!form || !input || !status || !results) return;
+    if (!form || !input) return;
 
     wireToolModal("searchModalBackdrop", ["openSearchBtn"], "searchModalClose", () => {
         input.focus();
-    });
-
-    function safeUrl(value) {
-        try {
-            const url = new URL(value);
-            return ["http:", "https:"].includes(url.protocol) ? url : null;
-        } catch {
-            return null;
-        }
-    }
-
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const query = input.value.trim();
-        if (!query) return;
-
-        status.textContent = `Searching for "${query}"...`;
-        results.textContent = "";
-
-        try {
-            const response = await fetch("/web-search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Search failed.");
-
-            if (data.reply) {
-                const summary = document.createElement("div");
-                summary.className = "search-summary-card";
-                summary.textContent = data.reply;
-                results.appendChild(summary);
-            }
-
-            const citations = (data.citations || [])
-                .map((citation) => ({ ...citation, safe: safeUrl(citation.url) }))
-                .filter((citation) => citation.safe);
-
-            citations.forEach((citation) => {
-                const card = document.createElement("div");
-                card.className = "search-result-card";
-
-                const domain = document.createElement("span");
-                domain.className = "result-domain";
-                domain.textContent = citation.safe.hostname;
-
-                const link = document.createElement("a");
-                link.href = citation.safe.href;
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                link.textContent = citation.title || citation.safe.hostname;
-
-                card.append(domain, link);
-                results.appendChild(card);
-            });
-
-            status.textContent = citations.length
-                ? `${citations.length} source${citations.length === 1 ? "" : "s"} for "${query}"`
-                : `Results for "${query}"`;
-        } catch (error) {
-            status.textContent = error?.message || "Search is temporarily unavailable.";
-        }
     });
 })();
 
