@@ -111,8 +111,11 @@ app.post("/chat", async (req, res) => {
         });
     } catch (error) {
         console.error("Text response failed:", error?.message ?? "Unknown error");
-        res.status(500).json({
-            error: "Something went wrong."
+        const creditsExhausted = error?.status === 429 || error?.code === "credit_balance_exhausted";
+        res.status(creditsExhausted ? 429 : 500).json({
+            error: creditsExhausted
+                ? "AI replies are unavailable because the API account has no credits. Add API credits, then try again."
+                : "Something went wrong."
         });
     }
 });
@@ -320,6 +323,12 @@ app.use(
     express.static(publicDirectory, {
         dotfiles: "deny",
         index: "index.html"
+    })
+);
+app.use(
+    express.static(fileURLToPath(new URL("./my ai upgrades/", import.meta.url)), {
+        dotfiles: "deny",
+        index: false
     })
 );
 

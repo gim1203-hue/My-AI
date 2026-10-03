@@ -203,7 +203,10 @@ async function openAIResponse(env, body) {
     const data = await response.json();
 
     if (!response.ok) {
-        throw new Error(data?.error?.message || "OpenAI request failed.");
+        const error = new Error(data?.error?.message || "OpenAI request failed.");
+        error.status = response.status;
+        error.code = data?.error?.code;
+        throw error;
     }
 
     return data;
@@ -287,7 +290,15 @@ async function handleChat(request, env) {
         });
     } catch (error) {
         console.error("Text response failed:", error?.message ?? "Unknown error");
-        return json({ error: "Something went wrong." }, 500);
+        const creditsExhausted = error?.status === 429 || error?.code === "credit_balance_exhausted";
+        return json(
+            {
+                error: creditsExhausted
+                    ? "AI replies are unavailable because the API account has no credits. Add API credits, then try again."
+                    : "Something went wrong."
+            },
+            creditsExhausted ? 429 : 500
+        );
     }
 }
 
@@ -303,7 +314,15 @@ async function handleWebSearch(request, env) {
         return json(await searchTheWeb(env, query));
     } catch (error) {
         console.error("Web search failed:", error?.message ?? "Unknown error");
-        return json({ error: "Web search is temporarily unavailable." }, 502);
+        const creditsExhausted = error?.status === 429 || error?.code === "credit_balance_exhausted";
+        return json(
+            {
+                error: creditsExhausted
+                    ? "AI web search is unavailable because the API account has no credits. Add API credits, then try again."
+                    : "Web search is temporarily unavailable."
+            },
+            creditsExhausted ? 429 : 502
+        );
     }
 }
 

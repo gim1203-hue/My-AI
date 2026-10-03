@@ -633,10 +633,9 @@ form.addEventListener("submit", async function (event) {
 
     } catch (error) {
         console.error(error);
-        appendChatMessage("My AI", "Sorry, something went wrong.");
-        textStatus.textContent = searchWeb
-            ? "Web search is unavailable right now. Try again or turn off Search the web."
-            : "The message could not be sent.";
+        const errorMessage = error instanceof Error ? error.message : "The message could not be sent. Please try again.";
+        appendChatMessage("My AI", errorMessage);
+        textStatus.textContent = errorMessage;
     } finally {
         sendButton.disabled = false;
         input.focus();
