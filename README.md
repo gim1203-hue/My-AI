@@ -1,16 +1,16 @@
-# My AI — free browser edition
+# My AI — free on-device assistant
 
-A separate static replacement for the paid API frontend. No OpenAI key, Node backend, Render API, or paid AI endpoint is used. Text generation runs in each visitor's browser using WebLLM 0.2.85. Speech recognition is browser-dependent and may use the browser provider's online service; do not advertise all voice as offline.
+The home page is a browser-based assistant. No OpenAI key, Node backend, Render API, or paid AI endpoint is needed for text replies. Text generation runs in the visitor's browser using WebLLM 0.2.85. Speech recognition is browser-dependent and may use the browser provider's online service.
 
 ## Publish
 
-Upload index.html, script.js and styles.css together to an HTTPS static host. To replace the existing frontend, back up its files first, replace these three files on the frontend deployment branch, and deploy. Existing paid server files can remain but this frontend never calls them. No remote repository or live deployment was changed by this deliverable.
+Deploy the Vite project to an HTTPS static host using its production build. The homepage loads the on-device assistant; the legacy API-powered interface remains at `/oldindex.html` and may require API billing for its cloud-only features.
 
 For local preview, serve this folder on localhost with a static HTTP server; do not double-click index.html. If the original Express server serves these files, its OpenAI-key startup requirement remains; static hosting avoids it entirely.
 
 ## Visitor flow
 
-Choose a model, press Load free AI, wait for the initial download, and send a question. Voice captures a question for review; press Send to submit it. Enable Read replies aloud for spoken output. Smaller models make more mistakes. No model can answer every question accurately.
+Choose a model, press Load free AI, wait for the initial download, and send a question. Voice captures a question for review; press Send to submit it. Enable Read replies aloud for spoken output. The assistant also follows a confirmed, step-by-step React project mentoring workflow. Smaller models make more mistakes. No model can answer every question accurately.
 
 Wikipedia research sends the question to the public Wikipedia API and inserts up to three excerpts with links into the AI prompt. It is not full search-engine retrieval. Search wider web opens Google separately. Network access is needed for the initial runtime/model download and Wikipedia. Visitors incur their own data usage; hosting and bandwidth limits may still apply.
 
