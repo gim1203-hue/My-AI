@@ -503,6 +503,53 @@ body.has-messages .empty-state {
 	color: #7a898b;
 }
 
+.google-search-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 2px 0 8px;
+}
+
+.google-search-row input {
+	flex: 1;
+	min-width: 0;
+	min-height: 34px;
+	border: 1px solid #d7e1df;
+	border-radius: 6px;
+	padding: 0 10px;
+	background: #fbfdfc;
+	color: var(--ink);
+	font-size: 12px;
+}
+
+.google-search-row input::placeholder {
+	color: #7a898b;
+}
+
+.google-search-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 34px;
+	border: 1px solid #d5dfdd;
+	border-radius: 5px;
+	padding: 0 10px;
+	color: var(--green-dark);
+	font-size: 11px;
+	font-weight: 700;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.google-search-button:hover {
+	background: #f1f7f4;
+}
+
+.google-search-button[aria-disabled="true"] {
+	color: #879598;
+	cursor: default;
+}
+
 .attachment-panel {
 	margin: 4px 0 10px;
 	border-top: 1px solid var(--line);
@@ -825,8 +872,7 @@ input:focus-visible {
 }
 
 @media (max-width: 420px) {
-	.free-tag,
-	.tool-link {
+	.free-tag {
 		display: none;
 	}
 

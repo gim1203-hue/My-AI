@@ -14,7 +14,17 @@ const system = `You are My AI, a helpful assistant and patient programming instr
 
 When the user wants to build a React project, act as a senior React developer and beginner-friendly mentor. Use JavaScript and Vite unless asked otherwise. Follow this sequence and do not skip ahead: (1) first give 10-15 project ideas across varied categories, each with name, description, purpose, features, React concepts, difficulty, and portfolio value; ask which project they choose, then stop without code. (2) After selection, provide a complete specification with must-have and optional features; ask whether they are ready for setup, then stop without code. (3) After confirmation, guide setup with exact commands. (4) Build components, pages, state, data, forms, search, API behavior, errors, responsive layout, tests, GitHub, deployment, and README in small confirmed steps. Before each file's complete code, state its exact path and purpose; explain concepts simply, where code goes, exact test commands, expected results, and common fixes. Never dump the whole project at once. Do not continue to the next major step until the user confirms. When the user reports an error, debug their current step instead of restarting. For ordinary questions, remain a general-purpose assistant.`;
 function status(text) { $('status').textContent = text; }
-function controls() { $('send').disabled = !engine || busy; $('load').disabled = busy || !!engine; $('model').disabled = busy || !!engine; $('mic').disabled = !engine || busy || !recognition; $('stop').disabled = !busy && !listening; $('clear').disabled = busy; renderConversationList(); }
+function controls() {
+    $('send').disabled = !engine || busy;
+    $('load').disabled = busy || !!engine;
+    $('load').textContent = engine ? 'AI ready' : busy ? 'Loading AI…' : 'Load free AI';
+    $('load').setAttribute('aria-busy', String(busy));
+    $('model').disabled = busy || !!engine;
+    $('mic').disabled = !engine || busy || !recognition;
+    $('stop').disabled = !busy && !listening;
+    $('clear').disabled = busy;
+    renderConversationList();
+}
 function loadConversations() {
     try {
         const saved = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) || '[]');
@@ -154,21 +164,25 @@ function renderAttachments() {
     });
 }
 async function addSelectedFiles(fileList) {
+    if (!fileList.length) return;
     const textFiles = [...fileList].filter(file => {
         const name = file.name.toLowerCase();
         const extension = name.split('.').pop();
         return file.type.startsWith('text/') || /^(txt|md|markdown|csv|json|html|htm|css|js|mjs|ts|tsx|jsx|py|java|c|cpp|h|hpp|cs|go|rs|php|rb|sql|xml|yaml|yml|toml|ini|sh|bat|ps1|log|gitignore|dockerignore|dockerfile)$/.test(extension) || name === 'dockerfile' || name.endsWith('.env.example');
     });
+    const eligibleFiles = textFiles.filter(file => file.size <= 2_000_000);
     const remainingSlots = MAX_ATTACHMENTS - attachedFiles.length;
-    const accepted = textFiles.slice(0, Math.max(remainingSlots, 0));
+    const accepted = eligibleFiles.slice(0, Math.max(remainingSlots, 0));
     const existingNames = new Set(attachedFiles.map(file => file.name));
     let remainingCharacters = Math.max(0, MAX_ATTACHMENT_CHARACTERS - attachedFiles.reduce((sum, file) => sum + file.content.length, 0));
-    let skipped = fileList.length - accepted.length;
+    let skipped = eligibleFiles.length - accepted.length;
     let trimmed = false;
+    const oversized = textFiles.length - eligibleFiles.length;
+    let unsupported = fileList.length - textFiles.length;
 
     for (const file of accepted) {
         const name = file.webkitRelativePath || file.name;
-        if (existingNames.has(name) || remainingCharacters <= 0 || file.size > 2_000_000) {
+        if (existingNames.has(name) || remainingCharacters <= 0) {
             skipped += 1;
             continue;
         }
@@ -184,8 +198,8 @@ async function addSelectedFiles(fileList) {
         }
     }
     renderAttachments();
-    status(skipped > 0
-        ? `${attachedFiles.length} text files attached; some files were skipped or exceeded the context limit.`
+    status(skipped > 0 || unsupported > 0 || oversized > 0
+        ? `${attachedFiles.length} text files attached. ${skipped} over the file-count/context limit, ${unsupported} unsupported, and ${oversized} over-2-MB files skipped.`
         : trimmed
             ? `${attachedFiles.length} text files attached; some contents were trimmed to fit model context.`
             : `${attachedFiles.length} text files attached.`);
@@ -264,17 +278,47 @@ function sources(box, refs) {
 }
 $('load').onclick = async () => {
     busy = true; controls(); $('progress').hidden = false;
+    $('progress').value = 0;
     try {
+        status('Checking browser support for on-device AI…');
         if (!window.isSecureContext) throw new Error('Open this website over HTTPS or localhost.');
-        if (!navigator.gpu || !await navigator.gpu.requestAdapter()) throw new Error('This device cannot run browser AI. Try a WebGPU-capable browser with graphics acceleration enabled.');
-        status('Loading AI software…');
+        if (!navigator.gpu) throw new Error('This browser does not support WebGPU. Try an up-to-date Chrome or Edge browser.');
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error('No compatible graphics device was found. Enable browser hardware acceleration and try again.');
+        status('Downloading the AI model to this device. Keep this tab open…');
         const {CreateMLCEngine} = await import('https://esm.run/@mlc-ai/web-llm@0.2.85');
         engine = await CreateMLCEngine($('model').value, {initProgressCallback: report => {status(report.text); $('progress').value = report.progress;}});
+        $('progress').value = 1;
         status('Ready. Ask a question or speak.');
-    } catch(e) {status(`AI could not load: ${e.message} You can retry or choose the smaller model.`);}
+    } catch(e) {
+        $('progress').hidden = true;
+        $('progress').value = 0;
+        status(`AI could not load: ${e.message} Check your connection and graphics settings, then retry.`);
+    }
     finally {busy=false; controls();}
 };
-$('question').oninput = () => { $('web').href = `https://www.google.com/search?q=${encodeURIComponent($('question').value)}`; };
+$('googleSearchInput').addEventListener('input', () => {
+    const query = $('googleSearchInput').value.trim();
+    $('googleSearchButton').href = query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : 'https://www.google.com/';
+    $('googleSearchButton').setAttribute('aria-disabled', String(!query));
+});
+$('googleSearchButton').addEventListener('click', event => {
+    if (!$('googleSearchInput').value.trim()) event.preventDefault();
+});
+$('googleSearchInput').addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        if ($('googleSearchInput').value.trim()) $('googleSearchButton').click();
+    }
+});
+$('attachFilesButton').addEventListener('click', () => $('fileInput').click());
+$('attachFolderButton').addEventListener('click', () => {
+    if (!('webkitdirectory' in document.createElement('input'))) {
+        status('Folder selection is not supported in this browser. Choose files instead.');
+        return;
+    }
+    $('folderInput').click();
+});
 $('form').onsubmit = async event => {
     event.preventDefault(); const question = $('question').value.trim(); if (!question || !engine || busy) return;
     recognition?.abort(); window.speechSynthesis?.cancel(); busy=true;stopped=false;controls();
@@ -345,8 +389,14 @@ document.querySelectorAll('[data-prompt]').forEach(button => {
         setSidebarOpen(false);
     });
 });
-$('fileInput').addEventListener('change', event => addSelectedFiles(event.target.files));
-$('folderInput').addEventListener('change', event => addSelectedFiles(event.target.files));
+$('fileInput').addEventListener('change', event => {
+    addSelectedFiles(event.target.files);
+    event.target.value = '';
+});
+$('folderInput').addEventListener('change', event => {
+    addSelectedFiles(event.target.files);
+    event.target.value = '';
+});
 $('clearAttachments').addEventListener('click', () => {
     attachedFiles = [];
     $('fileInput').value = '';

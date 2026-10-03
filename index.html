@@ -64,10 +64,15 @@
 			<form id="form" class="composer">
 				<label class="sr-only" for="question">Your message</label>
 				<textarea id="question" rows="1" maxlength="4000" placeholder="Message My AI" required></textarea>
+				<div class="google-search-row" role="search" aria-label="Google search">
+					<label class="sr-only" for="googleSearchInput">Search Google</label>
+					<input id="googleSearchInput" type="search" placeholder="Search Google..." autocomplete="off">
+					<a id="googleSearchButton" class="google-search-button" href="https://www.google.com/" target="_blank" rel="noopener noreferrer" aria-label="Search Google" aria-disabled="true">Search ↗</a>
+				</div>
 				<div id="attachmentPanel" class="attachment-panel" hidden>
 					<div class="attachment-heading"><strong id="attachmentSummary">No files attached</strong><button id="clearAttachments" class="clear-attachments" type="button">Clear</button></div>
 					<ul id="attachmentList" class="attachment-list"></ul>
-					<p class="attachment-limit">Up to 40 text files and 9,000 characters are included per message to protect browser memory and model context.</p>
+					<p class="attachment-limit">Up to 40 readable text files, 2 MB per file, and 9,000 characters total per message. Binary files are not included.</p>
 				</div>
 				<div class="composer-toolbar">
 					<div class="composer-options">
@@ -75,11 +80,10 @@
 						<label><input id="speak" type="checkbox"> <span>Read aloud</span></label>
 					</div>
 					<div class="composer-actions">
-						<label class="attach-button" for="fileInput" title="Attach files">＋ File</label>
+						<button id="attachFilesButton" class="attach-button" type="button" title="Choose files">＋ File</button>
 						<input id="fileInput" class="sr-only" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.html,.htm,.css,.js,.mjs,.ts,.tsx,.jsx,.py,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.php,.rb,.sql,.xml,.yaml,.yml,.toml,.ini,.sh,.bat,.ps1,.env.example,.gitignore,.log">
-						<label class="attach-button" for="folderInput" title="Attach a folder">＋ Folder</label>
+						<button id="attachFolderButton" class="attach-button" type="button" title="Choose a folder">＋ Folder</button>
 						<input id="folderInput" class="sr-only" type="file" webkitdirectory multiple>
-						<a id="web" class="tool-link" href="https://www.google.com/" target="_blank" rel="noopener noreferrer">Google search ↗</a>
 						<button id="mic" class="tool-button" type="button" disabled>Speak</button>
 						<button id="stop" class="tool-button" type="button" disabled>Stop</button>
 						<button id="send" class="send-button" type="submit" disabled aria-label="Send message"><span aria-hidden="true">↑</span></button>
